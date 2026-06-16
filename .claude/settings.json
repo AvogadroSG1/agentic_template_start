@@ -1,8 +1,5 @@
 {
   "enabledPlugins": {
-    "data-engineering@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true
   },
   "hooks": {
     "PreCompact": [
@@ -14,17 +11,6 @@
           }
         ],
         "matcher": ""
-      }
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "/Users/poconnor/peter_code/SlackStatus/.beads/hooks/calm-git-guard",
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
       }
     ],
     "SessionStart": [
