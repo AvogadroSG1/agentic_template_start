@@ -1,0 +1,35 @@
+# CONTEXT — mkproj
+
+Glossary of domain terms for the `mkproj` scaffolding system. Definitions only — no implementation details, no decisions (those live in `docs/adr/`).
+
+## Terms
+
+### mkproj
+The scaffolding CLI. One command initializes a fully configured project (git, agentic config, beads, skills) with zero follow-up steps.
+
+### Golden snapshot
+A pinned, vendored copy of an ecosystem-native scaffolder's output (e.g. `cobra-cli init`) captured at maintainer time, unpacked and templated at init. Not a live invocation.
+
+### Allowlist
+The curated set of Bash command prefixes the author has vetted as safe to run without a confirmation prompt. Convenience-oriented and **always growing**. Refreshes from a canonical source embedded in the `mkproj` binary, written into a versioned managed block in each project. Distinct from the deny floor.
+
+### Deny floor
+The small, stable, safety-oriented set of rules that block irreversible or dangerous commands. Enforced by the guard hook. Rarely changes. Distinct from the allowlist; shares a single canonical source file (different sections) but refreshes on its own cadence.
+
+### Managed block
+A delimited region (`<!-- BEGIN MKPROJ ALLOW v:N --> … <!-- END --> `) that the reconciler may rewrite in place, leaving surrounding hand-edited content untouched. Mirrors the existing beads integration block in `AGENTS.md`.
+
+### Reconciler
+A `mkproj` subcommand (`sync-allowlist`) that rewrites a project's managed block from the canonical embedded source. Triggered notify-only: a SessionStart hook detects staleness and prompts the author to run it; it never auto-mutates the repo.
+
+### Guard hook
+A self-contained PreToolUse hook shipped in-repo (`.claude/hooks/guard`), wired identically by both Claude Code and Codex via their `PreToolUse` events (both honor `exit 2` / deny). Enforces the deny floor only — it is a **deny-only net**, never an allow-decider. Runs in every permission mode; auto mode bypasses the confirmation prompt but never the guard.
+
+### Constituent
+One command within a compound shell line (split on `&&`, `||`, `;`, pipes). The guard judges each constituent for deny rules; one denied constituent blocks the whole line. The guard does NOT approve compounds — auto-run of a compound depends solely on an allow glob matching the whole line.
+
+### Secret-exposure guard
+A target-aware deny rule: blocks display/search commands (`cat`, `grep`, `rg`, `head`, `tail`, `less`, `awk`, `xxd`) against secret-path patterns (`.env*`, `*.pem`, `*.key`, `credentials`, `*.tfstate`, …) and blocks unfiltered environment dumps (`env`, `printenv`, `set`). Path patterns are configurable at the top of the guard. Distinct from content secret-scan, which guards commits.
+
+### Skill manifest vs. symlinks
+The `instill` manifest (`.claude/skill-manifest.json`) is the **committed, portable** declaration of which skills the repo uses (the lockfile). The `.claude/skills/` symlinks are **machine-local** and gitignored; `instill check-skills` regenerates them on clone (the node_modules).

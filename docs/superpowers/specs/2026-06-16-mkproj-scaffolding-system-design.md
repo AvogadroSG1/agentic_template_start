@@ -155,6 +155,36 @@ Collected via interactive prompts (flags may pre-answer). Everything else is ver
 
 ## 6. Allow/Deny Ruleset for Auto Mode
 
+> **Revised 2026-06-17 (grill-with-docs).** The original section conflated two
+> distinct concepts. They are now separated:
+>
+> - **Allowlist** — convenience, *always growing*, author-vetted command prefixes that
+>   remove the confirmation prompt. Lives **per-project** inside a versioned managed
+>   block; the canonical definition is **embedded in the `mkproj` binary**; a
+>   reconciler (`mkproj sync-allowlist`) rewrites the block, triggered **notify-only**
+>   on SessionStart (never auto-mutates).
+> - **Deny floor** — safety, *stable*, blocks the irreversible. Enforced by the guard
+>   hook as a **deny-only net** (it never approves anything).
+>
+> Both are defined in **one canonical embedded source file** (separate sections), so
+> there is a single place to look, but they refresh on independent cadences.
+>
+> **Glob semantics (decided):** allow globs do the *bulk* of approval; the guard is a
+> narrow net for *dangerous exceptions only*. Default per-tool rule is **broad prefix +
+> targeted deny**: one `Bash(tool*)` allow covers every subcommand at any depth (Claude
+> Code `*` is greedy across spaces — no per-subcommand jam); if a single subcommand is
+> dangerous, add *that* to the deny floor rather than narrowing the allow.
+>
+> **Compound commands (decided):** the guard is **deny-only** — it splits a compound and
+> blocks if any constituent is denied, but it does **not** approve compounds. A compound
+> auto-runs only when an allow glob matches the whole line; otherwise it prompts, and
+> that residual friction is accepted. **This supersedes rule A4's allow-side below.**
+>
+> **Codex parity (decided + verified):** Codex *does* support `PreToolUse` with the same
+> `exit 2` / `permissionDecision: deny` contract (covers Bash, apply_patch, MCP). The
+> deny floor is therefore **one shared guard script wired by both** Claude and Codex.
+> Known risk: Codex docs note "some shell interception remains incomplete."
+
 **Invariant — the guard hook is the terminal authority.** On every Bash tool call:
 
 ```mermaid
@@ -212,6 +242,12 @@ single denied constituent blocks the whole line). Blocks with a clear stderr rea
 | D6 | `mkfs*`, `dd of=/dev/*`, `> /dev/sd*`, fork bombs, `chmod -R 777 /` | **block** | Catch-all irreversible device/fs ops |
 | D7 | `git reset --hard` / `git clean -fdx` / `git checkout .` discarding uncommitted work | **block** | Irreversible local data loss |
 | D8 | `git commit --no-verify`/`-n`, `--no-gpg-sign` | **block** | Never bypass commit hooks (carries forward the one useful `calm-git-guard` behavior, now self-contained) |
+| D9 | Display/search of secret-bearing paths: `cat`/`grep`/`rg`/`head`/`tail`/`less`/`awk`/`xxd` targeting `.env*`, `*.pem`, `*.key`, `credentials`, `.aws/credentials`, `*.tfstate`, `id_rsa` | **block** | **Secret-exposure guard.** Prevents agents/junior devs surfacing secrets into the transcript. Path list configurable at top of guard. |
+| D10 | Unfiltered environment dumps: bare `env`, `printenv`, `set` (no filtering pipe) | **block** | Sprays every environment secret into the transcript |
+
+> **A4 is superseded** (see Section 6 revision note): the guard never approves
+> compounds; it only blocks a compound when a constituent matches D1–D10. Auto-run of a
+> compound depends solely on an allow glob matching the whole line.
 
 **Default posture:** commands matching neither an explicit allow nor deny rule **run**
 (deny-list is the safety net, not an allowlist jail) — matching the constraint "allow by
@@ -273,12 +309,25 @@ myproject/
 
 ---
 
-## 8. Open Items for Implementation Planning
+## 8. Agentic Baseline — every repo gets these day one
+
+Decided 2026-06-17 (grill-with-docs). Beyond permissions, every scaffolded repo ships:
+
+- **ADR scaffold** — `docs/adr/` + MADR template (global CLAUDE.md mandates MADR; repos must have a home for it from commit 1).
+- **CONTEXT.md glossary stub** — empty domain-glossary home for grill-with-docs / ubiquitous-language skills to write into.
+- **Codex full parity** — Codex gets the shared guard (PreToolUse), allowlist equivalent, and skill access — not just `bd prime`.
+- **Commit/PR conventions block** — Co-Authored-By footer, conventional-comments, <300-line PR norm wired into `AGENTS.md` per-repo (managed block).
+- **instill artifacts gitignored** — `.claude/skills/` symlinks gitignored (machine-local); `skill-manifest.json` committed (portable lockfile). `instill check-skills` regenerates symlinks on clone.
+
+## 9. Open Items for Implementation Planning
 
 - Minimal starter **skill set per stack** (which `instill` skills are defaults).
 - Security overlay contents per ecosystem (linters, audit tools, CI workflow files).
 - Exact `text/template` variable schema and prompt sequence.
 - `mkproj update` snapshot-capture automation (which toolchains, version pinning).
+- Canonical embedded allowlist/deny-floor **seed contents** (bd, instill, git read/write,
+  grep/rg/find, mise, gw, slack-cli, rtk — broad prefixes; D1–D10 deny floor).
+- Reconciler **version-staleness detection** + SessionStart notify-only wiring for both agents.
 
 ---
 
