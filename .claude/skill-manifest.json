@@ -1,0 +1,31 @@
+{
+  "skills": [
+    "ai-workflow/grill-with-docs",
+    "ai-workflow/handoff",
+    "ai-workflow/hookify/skills/writing-rules",
+    "ai-workflow/improve-codebase-architecture",
+    "ai-workflow/migrate-to-codex",
+    "ai-workflow/tdd",
+    "ai-workflow/to-issues",
+    "ai-workflow/to-prd",
+    "ai-workflow/triage",
+    "ai-workflow/zoom-out",
+    "productivity/mermaid",
+    "productivity/mise",
+    "productivity/ubiquitous-language-registry",
+    "stack-internal/stack-internal-architecture",
+    "superpowers/brainstorming",
+    "superpowers/dispatching-parallel-agents",
+    "superpowers/executing-plans",
+    "superpowers/finishing-a-development-branch",
+    "superpowers/receiving-code-review",
+    "superpowers/requesting-code-review",
+    "superpowers/subagent-driven-development",
+    "superpowers/systematic-debugging",
+    "superpowers/test-driven-development",
+    "superpowers/using-git-worktrees",
+    "superpowers/using-superpowers",
+    "superpowers/verification-before-completion",
+    "superpowers/writing-plans"
+  ]
+}
