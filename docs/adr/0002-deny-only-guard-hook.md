@@ -1,18 +1,25 @@
-# Guard hook is a deny-only net; compounds may still prompt
+# Guard hook is a deny-only net; native matcher handles compound allow
 
-**Status:** accepted · 2026-06-17 · supersedes rule A4 in the mkproj design spec §6
+**Status:** accepted · 2026-06-17 · amended 2026-06-18 (research correction) · supersedes rule A4 in the mkproj design spec §6
 
 ## Decision
 
 The shared guard hook (wired via `PreToolUse` by both Claude Code and Codex, which both
-honor `exit 2` / `permissionDecision: deny`) is a **deny-only net**. It splits compound
-commands and blocks the line if any constituent matches a deny rule (D1–D10, including the
-secret-exposure rules D9/D10), but it **never approves** anything. Allow globs do the bulk
-of approval; the guard catches dangerous exceptions only.
+honor `exit 2` / `permissionDecision: deny`) is a **deny-only net**. It blocks the line if
+any constituent matches a deny rule, but it **never approves** anything. The guard catches
+dangerous exceptions only.
 
-A vetted **compound** command auto-runs only when an allow glob matches the whole line.
-Compounds that globs structurally can't match (e.g. `git status && grep foo`) will still
-prompt. That residual friction is accepted.
+> **Amended 2026-06-18 — the compound-prompt premise was false.** This ADR originally
+> claimed vetted compounds like `git status && grep foo` "will still prompt … accepted
+> friction." Research into the official docs
+> ([code.claude.com/docs/en/permissions](https://code.claude.com/docs/en/permissions))
+> proved otherwise: **Claude Code's matcher is shell-operator-aware and splits compound
+> commands**, matching each subcommand independently against the allow rules (separators:
+> `&&`, `||`, `;`, `|`, `|&`, `&`, newlines; commands inside `$()` are also inspected). So
+> `git status && grep foo` **auto-approves natively** when both `git status` and `grep` are
+> on the allowlist — no hook allow-logic needed, no residual prompt. The guard stays
+> deny-only purely for *safety*, not because the native layer can't allow compounds. The
+> seed's job is therefore to make the **allowlist complete**; compounds then work for free.
 
 ## Considered Options
 
