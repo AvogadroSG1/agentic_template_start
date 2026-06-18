@@ -90,6 +90,15 @@ flowchart TD
 **Phase-ordering note:** the guard hook installs **before** `bd init` so that beads'
 own git-hook installation runs under the guard, not the reverse.
 
+**Remote-creation note (decided 2026-06-17):** Phase 3 runs **last — after everything is
+installed and the lefthook gates are wired** — so `gh repo create` publishes a repo that
+is already complete, and the *initial commit + push* passes through the full pre-commit /
+pre-push pipeline (secret-scan, lint, format, tests) before anything reaches the remote.
+The default for an interactive run is **`--remote gh`**: `gh repo create <name> --source .
+--remote origin` followed by `git push -u origin <branch>`. `--remote url` and
+`--remote none` remain available for explicit-URL and local-only flows. Creating the
+remote is part of the standard "day one it just works" path, not a manual afterthought.
+
 ### `mkproj update` (maintainer path)
 
 Keeps init offline/reproducible while allowing controlled refresh: re-fetches vendored
