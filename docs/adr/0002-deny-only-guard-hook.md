@@ -25,18 +25,33 @@ dangerous exceptions only.
 
 - **Hook-as-brain (approves compounds)** — the hook checks each constituent against the
   allowlist and returns an allow-decision if all pass (original spec rule A4). Rejected:
-  makes the safety-critical hook bidirectional and complex; we prefer a hook that can only
-  ever make things *safer*, never more permissive.
+  the native matcher already does constituent-aware *allow* (see amendment), so a
+  bidirectional hook is unnecessary; we keep a hook that can only ever make things *safer*.
 
 ## Consequences
 
-- Some vetted compound commands still prompt. Accepted as the price of a simple,
-  one-direction safety hook.
-- Per-tool allow rule is **broad prefix + targeted deny**: one `Bash(tool*)` covers all
-  subcommands; individual dangerous subcommands go on the deny floor.
-- The deny floor includes a **target-aware secret-exposure guard**: display/search of
-  secret-bearing paths and unfiltered env dumps are blocked, with a configurable path list
-  at the top of the guard. This will occasionally block a legitimate read (e.g.
-  `cat .env.example`) — accepted for leak-safety.
-- Codex caveat: docs note "some shell interception remains incomplete" — a known risk to
-  revisit as Codex matures.
+- Per-tool allow rule format is **`Bash(tool:*)`** (the colon form), not `Bash(tool*)`.
+  Two corrections from research: (1) the param-style `Bash(command:rm *)` is **silently
+  ignored** by Claude Code as compound-bypassable — never use it; (2) `*` matches across
+  spaces, so `Bash(tool:*)` covers all subcommands at any depth. Individual dangerous
+  subcommands go on the deny floor.
+- The deny floor's secret protection is a **whole-command-line path-token scan** ("protect
+  the asset path, not the verb"), NOT a command-name list. Research
+  ([permissions docs](https://code.claude.com/docs/en/permissions)) confirms a name list
+  (cat/grep/head…) is trivially bypassed by `python3 -c 'open(".env")'`, `awk '1' .env`,
+  `git show HEAD:.env`. The seed ports the proven scan from the author's existing
+  `guardrails-bin`. Irreducible gaps (obfuscated paths in interpreter one-liners, raw
+  `git cat-file -p <sha>`) are documented, not pretended-closed.
+- **Defense in depth (Anthropic's stated doctrine — command-string denies are "fragile").**
+  The seed layers: (1) native `Read()/Edit()/Write()` secret-path deny matchers; (2) the
+  path-token guard hook; (3) **OS-level sandbox on both agents** (Claude
+  `sandbox.enabled`, Codex `sandbox_mode=workspace-write`) for FS isolation; (4)
+  interpreter-class deny (`bash -c`, `python -c`, `eval`, …) as belt-and-suspenders.
+- **Sandbox network: ON, FS-isolation-only.** Network-off would break day-one
+  `git push`/`gh repo create`/`bd dolt push`/dependency installs. The seed keeps network
+  enabled and relies on the guard's exfil-channel deny (curl/wget/nc/scp + `/dev/tcp`) for
+  egress control — accepting that OS-level exfil protection is traded for zero network
+  friction.
+- Codex parity verified: Codex has `PreToolUse` (same exit-2/deny contract) **and** an
+  OS sandbox (Seatbelt/bubblewrap, on by default). Asymmetry to design around: Codex has
+  no per-path `denyRead` and only binary `network_access` (no domain allowlist).
