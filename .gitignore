@@ -7,3 +7,6 @@
 .claude/skills/
 .agents/skills/
 .claude/settings.local.json
+
+# Local skill backups — transient, do not commit
+.claude/backups/
