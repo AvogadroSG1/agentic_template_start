@@ -31,5 +31,22 @@ One command within a compound shell line (split on `&&`, `||`, `;`, pipes). The 
 ### Secret-exposure guard
 A target-aware deny rule: blocks display/search commands (`cat`, `grep`, `rg`, `head`, `tail`, `less`, `awk`, `xxd`) against secret-path patterns (`.env*`, `*.pem`, `*.key`, `credentials`, `*.tfstate`, …) and blocks unfiltered environment dumps (`env`, `printenv`, `set`). Path patterns are configurable at the top of the guard. Distinct from content secret-scan, which guards commits.
 
+### Overlay (.mkproj-overlay/)
+The layer on top of a vanilla golden snapshot that adds the author's vetted *opinions*:
+linters, formatters, test framework, recommended packages, gate wiring, CI. The snapshot
+is inert scaffolding; the overlay is where the value lives. Its tool/package choices are
+governed by (and tested against) the canonical language guideline files.
+
+### Gate
+An automated quality check (lint, format, test) defined once as a `mise` task and invoked
+by multiple callers (lefthook locally, GitHub Actions in CI) so the definition never
+drifts. Fast gates (lint/format) run on pre-commit; full tests run on pre-push and in CI.
+
+### Guideline file (canonical)
+`~/peter_code/ai_support/guidelines/{golang,python,csharp}.md` — the author's written
+language standards. **Source of truth** for what a template's overlay installs; a
+lightweight template test asserts conformance. A template may only ship for a language
+that has a guideline file (v1: Go, Python, C#).
+
 ### Skill manifest vs. symlinks
 The `instill` manifest (`.claude/skill-manifest.json`) is the **committed, portable** declaration of which skills the repo uses (the lockfile). The `.claude/skills/` symlinks are **machine-local** and gitignored; `instill check-skills` regenerates them on clone (the node_modules).

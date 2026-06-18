@@ -100,6 +100,27 @@ re-pins them into the source tree (followed by a rebuild).
 
 ## 4. Template Catalog — the "Golden Snapshot" Model
 
+> **Revised 2026-06-17 (grill-with-docs) — opinions & v1 scope:**
+>
+> A golden template has **two layers**: (1) the **vanilla snapshot** from the
+> ecosystem-native scaffolder (`cobra-cli init`, `uv init`, `dotnet new` — knows nothing
+> of personal opinions), and (2) the **`.mkproj-overlay/`** that adds the *vetted
+> opinions*: linters, formatters, test framework, recommended packages, CI. **The overlay
+> is where the value lives** — the snapshot is inert scaffolding underneath it.
+>
+> **Source of truth (decided):** the overlay's tool/package choices are governed by the
+> author's language guideline files (`~/peter_code/ai_support/guidelines/{golang,python,csharp}.md`).
+> Those `.md` files are **canonical**; a lightweight template test asserts the overlay
+> installs the tools they mandate (e.g. Python → `ruff`, `mypy`, `pytest`+`pytest-cov`,
+> `uv`, `src/` layout; Go → `go-cmp`, no assertion libs, table-driven tests; C# →
+> NUnit + FluentAssertions + NSubstitute + ErrorOr + Central Package Management). Drift is
+> caught by the test.
+>
+> **v1 catalog (decided):** **Go, Python, C# only** — the three languages with guideline
+> files. Every shipped template traces to a written guideline. **TS, Rust, Bash are
+> deferred** to a "write the guideline → then the template follows" backlog; the table
+> below retains them as future scope, struck through.
+
 Scope is a **language × project-type matrix**. Each golden template is a **pinned
 snapshot of an ecosystem-native scaffolder's output**, not a live invocation at init.
 
@@ -134,6 +155,45 @@ flowchart LR
 
 Native scaffolders (`cobra-cli`, `nest`, `cargo`, .NET SDK, …) are required only on the
 **maintainer** path, never at init.
+
+### Enforcement layer — the overlay wires opinions, doesn't just list them
+
+Decided 2026-06-17 (grill-with-docs). The overlay makes the guideline opinions
+**enforced**, not merely present:
+
+- **One gate definition (shared task runner).** `mise` tasks (`mise run lint`, `test`,
+  `fmt`, `ci`) are the single source of truth for "the gates." Per-language commands live
+  here (Python `ruff`+`mypy`+`pytest`; Go `gofmt`+`golangci-lint`+`go test`; C# `dotnet
+  format`+`dotnet test`).
+- **Local enforcement (lefthook).** A committed `lefthook.yml` runs **fast checks
+  (lint+format) on `pre-commit`** and **full tests on `pre-push`** — honoring "commit
+  early and often" *and* "tests pass before merge." lefthook chosen for language-agnostic,
+  single-config composition that coexists with beads' git hooks. lefthook calls the `mise`
+  tasks (no duplicated logic).
+- **CI enforcement (GitHub Actions).** `.github/workflows/ci.yml` calls the **same** `mise
+  run ci` target. Local hooks and CI cannot drift — one definition, two callers.
+
+This satisfies "day one it just works": a fresh repo enforces the author's standards
+locally and in CI before a line of feature code is written.
+
+### Layer composition — agentic × language hooks converge on one pipeline
+
+Decided 2026-06-17 (grill-with-docs). The agentic layer and the language overlay must not
+fight over `.git/hooks` or duplicate commit-time work:
+
+- **`.git/hooks` ownership — lefthook chaining.** Phase order: `bd init` (installs beads
+  hooks) → `lefthook install` in **non-clobber/chain mode** (calls beads' pre-existing
+  hooks). No coupling to beads' hook internals; no beads non-hook-mode dependency.
+  *Verification item:* confirm beads' specific hooks survive `lefthook install` during
+  implementation (lefthook's call-existing-hooks mechanism varies by hook type).
+- **`mise.toml` is the single bootstrap.** `[tools]` pins the toolchain (go/python/dotnet,
+  lefthook itself); `[tasks]` defines the gates. `mise install` provisions everything;
+  lefthook and CI both call `mise run`.
+- **One commit-time pipeline.** `lefthook pre-commit` = **secret-scan + lint + format**;
+  `lefthook pre-push` = full tests. The **secret-scan is one shared script** called by
+  *both* the agent guard hook (PreToolUse, earliest tripwire — agent layer) and the
+  lefthook pre-commit (git layer — also catches human commits). Defense in depth,
+  mirroring the deny-floor's Layer A + Layer B (ADR-0002).
 
 `.gitignore` per language is sourced from the canonical **`github/gitignore`** repo,
 merged with this repo's existing multi-language base `.gitignore`.
