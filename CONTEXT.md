@@ -32,10 +32,14 @@ One command within a compound shell line (split on `&&`, `||`, `;`, pipes). The 
 A target-aware deny rule: blocks display/search commands (`cat`, `grep`, `rg`, `head`, `tail`, `less`, `awk`, `xxd`) against secret-path patterns (`.env*`, `*.pem`, `*.key`, `credentials`, `*.tfstate`, …) and blocks unfiltered environment dumps (`env`, `printenv`, `set`). Path patterns are configurable at the top of the guard. Distinct from content secret-scan, which guards commits.
 
 ### Overlay (.mkproj-overlay/)
-The layer on top of a vanilla golden snapshot that adds the author's vetted *opinions*:
-linters, formatters, test framework, recommended packages, gate wiring, CI. The snapshot
-is inert scaffolding; the overlay is where the value lives. Its tool/package choices are
-governed by (and tested against) the canonical language guideline files.
+The single layer on top of a vanilla golden snapshot that adds the author's vetted
+*opinions*: formatter, linter, test framework, mocking framework, coverage tool, type
+checker, audit/security tooling, recommended packages, gate wiring, CI. The snapshot is
+inert scaffolding; the overlay is where the value lives. Its tool/package choices are
+governed by (and tested against) the canonical language guideline files. There is exactly
+**one** overlay per stack — the earlier name "security overlay" is retired; audit/security
+tooling is one *part* of the overlay, not a separate layer. `mkproj update` regenerates the
+snapshot beneath it but never touches the overlay.
 
 ### Gate
 An automated quality check (lint, format, test) defined once as a `mise` task and invoked
