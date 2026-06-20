@@ -4,6 +4,13 @@
 **Prepared for:** a junior/guided engineer taking the first runnable slices.
 **Read this top to bottom once before claiming any issue.**
 
+> **📌 Canonical docs (updated 2026-06-20):** the five mini-specs this brief cites have been
+> consolidated into one definitive specification. Read **[`docs/SPEC.md`](../SPEC.md)** (how the
+> system works), **[`docs/PRD.md`](../PRD.md)** (why it exists), and **[`docs/adr/`](../adr/)**
+> (ADR-0001…0009, the decisions). The original specs are archived under
+> `docs/superpowers/specs/_superseded/` for history. Where a link below points at the old specs/
+> path, find the same content in SPEC.md (see its §0.1 supersession map).
+
 ---
 
 ## 0. What this project is (60-second orientation)
