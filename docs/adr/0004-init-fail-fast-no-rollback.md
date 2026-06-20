@@ -12,10 +12,10 @@ own work.
 
 Two facts shape the answer:
 
-1. **`mkproj init` requires an empty directory** (decided 2026-06-19; the strict precondition
-   in the init-lifecycle spec). The entire resulting tree is therefore mkproj's own creation.
+1. **`mkproj init` requires an empty directory** (ADR-0008; the strict precondition). The
+   entire resulting tree is therefore mkproj's own creation.
 2. **Phase 3 (remote creation) runs last**, after every local step succeeds, so the only step
-   with an external side effect cannot fire before a local-step failure.
+   with an external side effect cannot fire before a local-step failure (ADR-0009).
 
 ## Decision
 
