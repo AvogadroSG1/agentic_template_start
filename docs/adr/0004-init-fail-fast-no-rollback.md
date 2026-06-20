@@ -47,4 +47,4 @@ unwind its mutations.
 - The implementation stays simple: ordered steps, fail at the first error, emit a
   step-specific message and the recovery command. No mutation journal.
 - Phase 3's *own* failure has a separate rule (leave the remote and instruct, never
-  auto-delete) — see the init-lifecycle spec §1.3.
+  auto-delete) — see ADR-0009.
