@@ -39,7 +39,8 @@ ADR-0001 (per-project allowlist, embedded source) · ADR-0002 (deny-only guard h
 ADR-0003 (one shared gate pipeline) · ADR-0004 (init fail-fast, no rollback) · ADR-0005
 (stacks as walking-skeleton recipes) · ADR-0006 (update determinism & refresh seam) · ADR-0007
 (engine: Go + text/template + embed.FS) · ADR-0008 (strict empty-dir precondition) · ADR-0009
-(remote default gh, Phase-3-last, never auto-delete).
+(remote default gh, Phase-3-last, never auto-delete) · ADR-0010 (guideline is the conformance
+floor, not the ceiling).
 
 ---
 
