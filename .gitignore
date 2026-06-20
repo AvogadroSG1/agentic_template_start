@@ -10,3 +10,5 @@
 
 # Local skill backups — transient, do not commit
 .claude/backups/
+**DS_Store**
+.claude/.DS_Store
