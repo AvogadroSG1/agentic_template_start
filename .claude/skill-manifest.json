@@ -2,6 +2,8 @@
   "skills": [
     "ai-workflow/hookify/skills/writing-rules",
     "ai-workflow/mattpocock/codebase-design",
+    "ai-workflow/mattpocock/diagnosing-bugs",
+    "ai-workflow/mattpocock/domain-modeling",
     "ai-workflow/mattpocock/grill-with-docs",
     "ai-workflow/mattpocock/handoff",
     "ai-workflow/mattpocock/implement",
