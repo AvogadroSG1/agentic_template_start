@@ -577,7 +577,7 @@ footer, conventional-comments, <300-line PR norm); and **gitignored instill arti
 *(Authoritative: CLI/render contract §8; cites ADR-0005, ADR-0006. Maintainer-only, online.)*
 
 `mkproj update` refreshes all stacks by default; `--stack <key>` scopes to one. Each run: execute
-the recipe's ordered steps (`run`/`checkout`/`strip`) in a temp dir (`369`) → run the per-stack
+the recipe's ordered steps (`checkout`/`run`, with per-step `strip:` on a `checkout`) in a temp dir (`369`) → run the per-stack
 normalization pass over the **vanilla layer only** → write the snapshot into
 `templates/golden/<key>/` → re-pin `sources.yaml`. It **regenerates vanilla only — never
 `.mkproj-overlay/`** — and **fails loudly** naming any missing native scaffolder. Rebuilding the
