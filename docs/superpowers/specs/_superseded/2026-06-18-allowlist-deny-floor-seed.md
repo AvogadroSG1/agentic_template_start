@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED 2026-06-20 by [`/docs/SPEC.md`](../../../SPEC.md).** Retained for history only — do not implement from this document. See SPEC.md §0.1 for the section that subsumes this content.
+
 # Allowlist + Deny-Floor Seed Contents (bd: agentic_template_start-aoc)
 
 **Status:** decided 2026-06-18 (grill-with-docs) · **Author:** Peter O'Connor with Claude Code (databricks-claude-opus-4-8)

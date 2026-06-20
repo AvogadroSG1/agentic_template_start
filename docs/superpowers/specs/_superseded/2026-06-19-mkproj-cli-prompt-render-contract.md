@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED 2026-06-20 by [`/docs/SPEC.md`](../../../SPEC.md).** Retained for history only — do not implement from this document. See SPEC.md §0.1 for the section that subsumes this content.
+
 # mkproj CLI, Prompt & Render Contract + remaining §9 open items
 
 **Status:** decided 2026-06-19 (grill-with-docs) · **Author:** Peter O'Connor with Claude Code (databricks-claude-opus-4-8)

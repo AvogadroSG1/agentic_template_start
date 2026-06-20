@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED 2026-06-20 by [`/docs/SPEC.md`](../../../SPEC.md).** Retained for history only — do not implement from this document. See SPEC.md §0.1 for the section that subsumes this content.
+
 # mkproj — Reusable Git Project Initialization Template System
 
 **Status:** Design approved (brainstorming complete) · **Date:** 2026-06-16
