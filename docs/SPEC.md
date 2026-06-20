@@ -737,7 +737,8 @@ flowchart TD
     end
 
     FLAT["Flat under EPIC: 7sn guard · 79r secret-core · 02o scan-staged · 485 chain-mode ·
-          rom reconciler · wer remote · uuw smoke · ebp conformance · zz8 publish · 7eu post-v1"]
+          rom reconciler · wer remote · uuw smoke · ebp conformance · zz8 publish · 7eu post-v1
+          (edges: ebp ⊣ zz8 · uuw ⊣ walking-skeleton Feature · x2k ⊣ 485)"]
 
     EPIC --> F1 & F2 & F3 & FLAT
 ```
