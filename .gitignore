@@ -8,6 +8,7 @@
 .agents/skills/
 .claude/settings.local.json
 .worktrees/
+.cache/
 
 # Local skill backups — transient, do not commit
 .claude/backups/
