@@ -727,7 +727,7 @@ flowchart TD
     EPIC["EPIC: mkproj v1 — one command → a complete AI-native project"]
 
     subgraph F1["FEATURE: Walking-skeleton scaffold (gate = composition seam test)"]
-        S83["83n contract"] & SIHA["iha Phase-1 writer"] & S3TT["3tt catalog assets"] & SYUW["yuw common assets"]
+        S83["83n contract"] & SIHA["iha Phase-1 writer"] & S3TT["3tt catalog assets"] & SYUW["yuw common assets"] & SS5X["s5x init entrypoint"]
     end
     subgraph F2["FEATURE: Enforced gate pipeline (gate = CI-resolves seam test)"]
         SUD1["ud1 CI workflow"] & SX2K["x2k mise tasks"]
