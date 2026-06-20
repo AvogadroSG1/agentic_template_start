@@ -32,7 +32,7 @@ A self-contained PreToolUse hook shipped in-repo (`.claude/hooks/guard`), wired 
 One command within a compound shell line (split on `&&`, `||`, `;`, pipes). The guard judges each constituent for deny rules; one denied constituent blocks the whole line. The guard does NOT approve compounds — auto-run of a compound depends solely on an allow glob matching the whole line.
 
 ### Secret-exposure guard
-A target-aware deny rule: blocks display/search commands (`cat`, `grep`, `rg`, `head`, `tail`, `less`, `awk`, `xxd`) against secret-path patterns (`.env*`, `*.pem`, `*.key`, `credentials`, `*.tfstate`, …) and blocks unfiltered environment dumps (`env`, `printenv`, `set`). Path patterns are configurable at the top of the guard. Distinct from content secret-scan, which guards commits.
+A target-aware deny rule that blocks any command line **referencing a secret path token** (`.env*`, `*.pem`, `*.key`, `credentials`, `*.tfstate`, `.ssh/`, `.aws/`, …) **regardless of the binary** used (`cat`, `awk`, `git show HEAD:.env`, `python -c …`) — a path-token scan, **not** a command-name list (a name list is trivially bypassed; see ADR-0002). Also blocks unfiltered environment dumps (`env`, `printenv`, `set`). Path patterns are configurable at the top of the guard. Realized as deny rules **D9** (path-token) + **D10** (env-dump), implemented in `secret-scan.sh` (SPEC §11.3, §12). Distinct from content secret-scan (`scan-staged` mode), which guards commits.
 
 ### Overlay (.mkproj-overlay/)
 The single layer on top of a vanilla golden snapshot that adds the author's vetted
