@@ -51,9 +51,11 @@ drifts. Fast gates (lint/format) run on pre-commit; full tests run on pre-push a
 
 ### Guideline file (canonical)
 `~/peter_code/ai_support/guidelines/{golang,python,csharp}.md` — the author's written
-language standards. **Source of truth** for what a template's overlay installs; a
-lightweight template test asserts conformance. A template may only ship for a language
-that has a guideline file (v1: Go, Python, C#).
+language standards. The **minimum source of truth** (the *floor*) for what a template's
+overlay installs: the overlay MUST implement every guideline MUST/SHOULD and MAY add vetted
+extras the guideline is silent on. A lightweight conformance test asserts the floor — it
+fails when a guideline MUST has no corresponding overlay tool, not when the overlay ships an
+extra. A template may only ship for a language that has a guideline file (v1: Go, Python, C#).
 
 ### Skill manifest vs. symlinks
 The `instill` manifest (`.claude/skill-manifest.json`) is the **committed, portable** declaration of which skills the repo uses (the lockfile). The `.claude/skills/` symlinks are **machine-local** and gitignored; `instill check-skills` regenerates them on clone (the node_modules).
