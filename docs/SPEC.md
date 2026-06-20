@@ -459,7 +459,7 @@ canonical embedded source file (separate sections), refreshing on independent ca
   (`grep/rg/fd/jq/sed/awk/sort/...`), misc shell (`echo/printf/date/xargs/timeout/bash`), and
   native Claude tools (`Read Glob Grep Edit Write WebSearch`).
 - **Per-stack slice (only the project's stack):** Go → `Bash(go:*)`; Python →
-  `python/python3/uv/pip/pytest/ruff/mypy/...`; C# → `Bash(dotnet:*)`.
+  `python/python3/uv/pip/pytest/ruff/pyright/...`; C# → `Bash(dotnet:*)`.
 - **Personal section** (tagged block; stripped by default, included via `--include-personal`):
   `gw/rtk/slack-cli`, cloud CLIs, `brew`, `docker` read ops.
 - **Deliberately OUT** (stay prompting/denied): `curl`, `wget` — the remaining command-layer exfil
