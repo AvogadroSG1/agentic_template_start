@@ -93,7 +93,7 @@ folder; the result must be a complete, working project with no manual steps afte
 |---|---|
 | Why does this product exist / what must it achieve? | **This PRD** |
 | How does the system actually work? | [`SPEC.md`](./SPEC.md) |
-| Why was a specific decision made (and what was rejected)? | [`docs/adr/`](./adr/) (ADR-0001 … ADR-0009) |
+| Why was a specific decision made (and what was rejected)? | [`docs/adr/`](./adr/) (ADR-0001 … ADR-0010) |
 | What does a domain term mean? | [`CONTEXT.md`](../CONTEXT.md) |
 
 ---
