@@ -366,11 +366,11 @@ Every overlay tool traces to a canonical guideline file; the conformance test (`
 
 ### 10.2 Conformance semantics — guideline is the floor, not the ceiling
 
-The guideline file is the **minimum** source of truth (CONTEXT.md). The `ebp` conformance test
-**fails when a guideline MUST has no corresponding overlay tool** (the overlay is missing something
-required). It does **not** fail when the overlay ships a vetted extra the guideline is silent on.
-Consequently `FluentAssertions` (C#) and `pytest-mock` (Python), if present as vetted extras,
-require **no guideline edit**.
+The guideline file is the **minimum** source of truth (CONTEXT.md; **ADR-0010**). The `ebp`
+conformance test **fails when a guideline MUST has no corresponding overlay tool** (the overlay is
+missing something required). It does **not** fail when the overlay ships a vetted extra the
+guideline is silent on. Consequently `FluentAssertions` (C#) and `pytest-mock` (Python), if present
+as vetted extras, require **no guideline edit**.
 
 ### 10.3 CI workflow shape
 
