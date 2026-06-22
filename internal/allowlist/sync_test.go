@@ -10,9 +10,21 @@ import (
 func TestDetectReportsStaleManagedBlocks(t *testing.T) {
 	t.Parallel()
 
-	status := Detect("// BEGIN MKPROJ ALLOW v:0\nold\n// END MKPROJ ALLOW\n")
+	status, err := Detect("// BEGIN MKPROJ ALLOW v:0\nold\n// END MKPROJ ALLOW\n")
+	if err != nil {
+		t.Fatalf("Detect() error = %v", err)
+	}
 	if !status.Stale {
 		t.Fatalf("Detect() stale = false, want true")
+	}
+}
+
+func TestDetectRejectsMalformedManagedBlockVersions(t *testing.T) {
+	t.Parallel()
+
+	_, err := Detect("// BEGIN MKPROJ ALLOW v:nope\nold\n// END MKPROJ ALLOW\n")
+	if err == nil || !strings.Contains(err.Error(), "invalid managed block version") {
+		t.Fatalf("Detect() error = %v, want invalid managed block version", err)
 	}
 }
 

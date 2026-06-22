@@ -1,6 +1,6 @@
 gitignore_repo:
   repo: "https://github.com/github/gitignore"
-  ref: "0000000000000000000000000000000000000001"
+  ref: "dcc0fc7bc2b5ba480cf117ad1be31bafceeaff46"
 
 go-cli-cobra:
   kind: scaffolder
@@ -14,14 +14,14 @@ go-cli-cobra:
     - type: trailing_newline
     - type: sort_files
   resolved:
-    ref: "1111111111111111111111111111111111111111"
+    ref: "v1.3.0"
     captured: "2026-06-20"
 
 go-api-chi:
   kind: recipe
   steps:
     - checkout: "github.com/golang-standards/project-layout"
-      ref: "2222222222222222222222222222222222222222"
+      ref: "a9d6fae7015527b10550ebb6d6b71a71b1ef5ea7"
       strip: [".git", "README.md", "docs"]
     - run: "go mod init {{.ModulePath}}"
     - run: "go get github.com/go-chi/chi/v5@v5.1.0 go.uber.org/zap@v1.27.0 github.com/spf13/viper@v1.19.0 github.com/stretchr/testify@v1.9.0"
@@ -31,7 +31,7 @@ go-api-chi:
     - type: trailing_newline
     - type: sort_files
   resolved:
-    ref: "2222222222222222222222222222222222222222"
+    ref: "a9d6fae7015527b10550ebb6d6b71a71b1ef5ea7"
     captured: "2026-06-20"
 
 python-cli-typer:
@@ -45,7 +45,7 @@ python-cli-typer:
     - type: trailing_newline
     - type: sort_files
   resolved:
-    ref: "3333333333333333333333333333333333333333"
+    ref: "uv 0.11.8"
     captured: "2026-06-20"
 
 python-fastapi:
@@ -59,7 +59,7 @@ python-fastapi:
     - type: trailing_newline
     - type: sort_files
   resolved:
-    ref: "4444444444444444444444444444444444444444"
+    ref: "uv 0.11.8"
     captured: "2026-06-20"
 
 csharp-cli:
@@ -75,7 +75,7 @@ csharp-cli:
       paths: ["*.csproj", "*.sln"]
     - type: sort_files
   resolved:
-    ref: "5555555555555555555555555555555555555555"
+    ref: "dotnet-sdk 10.0.203"
     captured: "2026-06-20"
 
 csharp-webapi:
@@ -90,5 +90,5 @@ csharp-webapi:
       paths: ["*.csproj", "*.sln"]
     - type: sort_files
   resolved:
-    ref: "6666666666666666666666666666666666666666"
+    ref: "dotnet-sdk 10.0.203"
     captured: "2026-06-20"

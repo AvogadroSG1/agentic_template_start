@@ -51,32 +51,6 @@ func (w Writer) Write(targetDir string, vars project.Variables) error {
 	return nil
 }
 
-func ensureEmptyDir(targetDir string) error {
-	info, err := os.Stat(targetDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return os.MkdirAll(targetDir, 0o755)
-		}
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", targetDir)
-	}
-
-	entries, err := os.ReadDir(targetDir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		if entry.Name() == ".DS_Store" {
-			continue
-		}
-		return fmt.Errorf("directory not empty: %s", targetDir)
-	}
-
-	return nil
-}
-
 func ensureWritableDir(targetDir string) error {
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return err

@@ -85,6 +85,15 @@ func Resolve(input Inputs, prompter Prompter) (project.Input, error) {
 		return project.Input{}, fmt.Errorf("invalid --remote %q (valid choices: %s)", remoteValue, strings.Join(remoteChoices, ", "))
 	}
 
+	gitHubUser := strings.TrimSpace(input.GitHubUser)
+	if remoteValue == string(project.RemoteGH) && gitHubUser == "" {
+		gitHubUser, err = resolveValue(input.GitHubUser, input.IsTTY, prompter, "github-user", "GitHub user", nil, "")
+		if err != nil {
+			return project.Input{}, err
+		}
+		gitHubUser = strings.TrimSpace(gitHubUser)
+	}
+
 	resolved := project.Input{
 		ProjectName: projectName,
 		Language:    language,
@@ -92,7 +101,7 @@ func Resolve(input Inputs, prompter Prompter) (project.Input, error) {
 		Stack:       stack,
 		AuthorName:  authorName,
 		AuthorEmail: authorEmail,
-		GitHubUser:  strings.TrimSpace(input.GitHubUser),
+		GitHubUser:  gitHubUser,
 		Remote:      project.RemoteKind(remoteValue),
 		RemoteURL:   strings.TrimSpace(input.RemoteURL),
 		ModulePath:  strings.TrimSpace(input.ModulePath),

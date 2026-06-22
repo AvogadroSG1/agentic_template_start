@@ -1,0 +1,18 @@
+[tools]
+python = "3.14.4"
+ruff = "latest"
+pyright = "latest"
+pip-audit = "latest"
+lefthook = "latest"
+
+[tasks.fmt]
+run = "ruff format ."
+
+[tasks.lint]
+run = "ruff check . && pyright"
+
+[tasks.test]
+run = "pytest -q"
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && pip-audit"

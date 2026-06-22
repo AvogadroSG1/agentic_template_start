@@ -8,6 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"mkproj"
 	"mkproj/internal/project"
 )
 
@@ -69,20 +70,6 @@ func TestWriterComposesCommonVanillaAndOverlayAssets(t *testing.T) {
 	}
 }
 
-func TestEnsureEmptyDirRejectsNonEmptyDirectories(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempDir, "existing.txt"), []byte("boom"), 0o644); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
-
-	err := ensureEmptyDir(tempDir)
-	if err == nil || !strings.Contains(err.Error(), "directory not empty") {
-		t.Fatalf("ensureEmptyDir() error = %v, want directory not empty", err)
-	}
-}
-
 func TestWriterFailsBeforeWritingPartialTemplatesOnMissingVariables(t *testing.T) {
 	t.Parallel()
 
@@ -111,14 +98,95 @@ func TestWriterFailsBeforeWritingPartialTemplatesOnMissingVariables(t *testing.T
 	}
 }
 
-func assertFileContains(t *testing.T, path string, want string) {
+func TestWriterRendersPythonPackageAndLanguageScopedManifestFromEmbeddedTemplates(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "My Cool API",
+		Language:    "python",
+		ProjectType: "cli",
+		Stack:       "python-cli-typer",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: mkproj.Assets()}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	assertFileContains(t, filepath.Join(tempDir, "pyproject.toml"), `name = "my_cool_api"`)
+	assertFileContains(t, filepath.Join(tempDir, "CONTEXT.md"), "# Context")
+	assertFileContains(t, filepath.Join(tempDir, "docs", "adr", "0000-template.md"), "# ADR 0000")
+
+	manifestPath := filepath.Join(tempDir, ".claude", "skill-manifest.json")
+	manifest := readFile(t, manifestPath)
+	if strings.Contains(manifest, "golang/golang-cli") {
+		t.Fatalf("python manifest should not include go-only skills:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "productivity/mise") {
+		t.Fatalf("python manifest missing shared skills:\n%s", manifest)
+	}
+}
+
+func TestWriterRendersCSharpNamespaceIntoProjectFile(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "My Cool API",
+		Language:    "csharp",
+		ProjectType: "cli",
+		Stack:       "csharp-cli",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: mkproj.Assets()}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	projectFile := filepath.Join(tempDir, "Project.csproj")
+	assertFileContains(t, projectFile, "<AssemblyName>MyCoolApi</AssemblyName>")
+	assertFileContains(t, projectFile, "<RootNamespace>MyCoolApi</RootNamespace>")
+}
+
+func readFile(t *testing.T, path string) string {
 	t.Helper()
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile(%s) error = %v", path, err)
 	}
-	if !strings.Contains(string(data), want) {
+
+	return string(data)
+}
+
+func assertFileContains(t *testing.T, path string, want string) {
+	t.Helper()
+
+	data := readFile(t, path)
+	if !strings.Contains(data, want) {
 		t.Fatalf("%s does not contain %q:\n%s", path, want, data)
+	}
+}
+
+func TestTemplateSecretScanMatchesSharedScanner(t *testing.T) {
+	t.Parallel()
+
+	shared := readFile(t, filepath.Join("..", "..", ".claude", "hooks", "secret-scan.sh"))
+	template := readFile(t, filepath.Join("..", "..", "templates", "common", "claude", "hooks", "secret-scan.sh"))
+	if template != shared {
+		t.Fatalf("template secret scanner drifted from shared scanner")
 	}
 }

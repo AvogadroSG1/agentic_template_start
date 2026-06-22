@@ -16,6 +16,7 @@
     "ai-workflow/mattpocock/triage",
     "ai-workflow/migrate-to-codex",
     "ai-workflow/zoom-out",
+{{- if eq .Language "go" }}
     "golang/golang-cli",
     "golang/golang-code-style",
     "golang/golang-concurrency",
@@ -28,6 +29,7 @@
     "golang/golang-documentation",
     "golang/golang-error-handling",
     "golang/golang-linter",
+{{- end }}
     "productivity/mermaid",
     "productivity/mise",
     "productivity/ubiquitous-language-registry",
