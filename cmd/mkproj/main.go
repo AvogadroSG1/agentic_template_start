@@ -12,16 +12,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	"mkproj"
 	allowlist "mkproj/internal/allowlist"
 	"mkproj/internal/delegate"
 	initcmd "mkproj/internal/init"
 	"mkproj/internal/project"
 	"mkproj/internal/prompt"
 	"mkproj/internal/scaffold"
+	updatepkg "mkproj/internal/update"
 )
 
 func main() {
-	if err := run(os.Args[1:], os.DirFS(".")); err != nil {
+	if err := run(os.Args[1:], mkproj.Assets()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -34,9 +36,9 @@ func run(args []string, assets fs.FS) error {
 	case "init":
 		return runInit(args, assets)
 	case "sync-allowlist":
-		return runSyncAllowlist(args)
+		return runSyncAllowlist(args, assets)
 	case "update":
-		return fmt.Errorf("mkproj update is not implemented yet")
+		return runUpdate(args, assets)
 	default:
 		return fmt.Errorf("unsupported command %q", command)
 	}
@@ -88,26 +90,49 @@ func runInit(args []string, assets fs.FS) error {
 		return err
 	}
 
+	cwd, err := currentWorkingDir()
+	if err != nil {
+		return err
+	}
+
 	initializer := initcmd.Initializer{
 		Writer: scaffold.Writer{Assets: assets},
 		Runner: delegate.ExecRunner{},
 	}
 
-	return initializer.Run(context.Background(), mustGetwd(), vars)
+	return initializer.Run(context.Background(), cwd, vars)
 }
 
-func runSyncAllowlist(args []string) error {
+func runSyncAllowlist(args []string, assets fs.FS) error {
+	cwd, err := currentWorkingDir()
+	if err != nil {
+		return err
+	}
+
 	flags := flag.NewFlagSet("mkproj sync-allowlist", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	var checkOnly bool
 	var settingsPath string
 	flags.BoolVar(&checkOnly, "check", false, "Only report staleness")
-	flags.StringVar(&settingsPath, "path", filepath.Join(mustGetwd(), ".claude", "settings.local.json"), "settings.local.json path")
+	flags.StringVar(&settingsPath, "path", filepath.Join(cwd, ".claude", "settings.local.json"), "settings.local.json path")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
-	status, err := allowlist.Sync(settingsPath, defaultAllowlistBlock(), checkOnly)
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return err
+	}
+	language, err := allowlist.InferLanguage(string(data))
+	if err != nil {
+		return err
+	}
+	block, err := allowlist.CanonicalBlock(assets, language)
+	if err != nil {
+		return err
+	}
+
+	status, err := allowlist.Sync(settingsPath, block, checkOnly)
 	if err != nil {
 		return err
 	}
@@ -122,23 +147,28 @@ func runSyncAllowlist(args []string) error {
 	return nil
 }
 
-func defaultAllowlistBlock() string {
-	return strings.Join([]string{
-		`      "Bash(git:*)",`,
-		`      "Bash(bd:*)",`,
-		`      "Bash(instill:*)",`,
-		`      "Bash(mise:*)",`,
-		`      "Bash(lefthook:*)",`,
-	}, "\n")
-}
-
-func mustGetwd() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
+func runUpdate(args []string, assets fs.FS) error {
+	flags := flag.NewFlagSet("mkproj update", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	var stack string
+	flags.StringVar(&stack, "stack", "", "Stack key to refresh")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if strings.TrimSpace(stack) == "" {
+		return fmt.Errorf("missing required flag: --stack")
 	}
 
-	return wd
+	return updatepkg.Run(context.Background(), assets, stack, delegate.ExecRunner{}, updatepkg.ExecGitRunner{})
+}
+
+func currentWorkingDir() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get working directory: %w", err)
+	}
+
+	return wd, nil
 }
 
 func gitConfig(key string) string {
