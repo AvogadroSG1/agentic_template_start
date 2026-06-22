@@ -1,0 +1,15 @@
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+# instill — managed symlinks, do not commit
+.claude/skills/
+.agents/skills/
+.claude/settings.local.json
+.worktrees/
+.cache/
+
+# Local skill backups — transient, do not commit
+.claude/backups/
+**DS_Store**
+.claude/.DS_Store

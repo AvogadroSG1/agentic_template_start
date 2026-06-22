@@ -1,0 +1,55 @@
+# Placeholder vendored from local mkproj context because an exact local checkout of
+# github/gitignore was not available in this worktree. Replace with the pinned upstream
+# file when the maintainer wires `sources.yaml` to a concrete gitignore SHA.
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+.coverage
+.coverage.*
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Type checkers
+.mypy_cache/
+.pyre/
+.pytype/
+
+# Jupyter Notebook
+.ipynb_checkpoints

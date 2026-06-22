@@ -1,0 +1,15 @@
+[tools]
+dotnet = "10.0.203"
+lefthook = "latest"
+
+[tasks.fmt]
+run = "dotnet format Project.csproj --verify-no-changes"
+
+[tasks.lint]
+run = "dotnet build tests/Project.Tests/Project.Tests.csproj -warnaserror"
+
+[tasks.test]
+run = "dotnet test tests/Project.Tests/Project.Tests.csproj"
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && dotnet list tests/Project.Tests/Project.Tests.csproj package --vulnerable --include-transitive"

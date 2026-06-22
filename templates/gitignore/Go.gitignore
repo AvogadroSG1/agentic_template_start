@@ -1,0 +1,19 @@
+# Placeholder vendored from local mkproj context because an exact local checkout of
+# github/gitignore was not available in this worktree. Replace with the pinned upstream
+# file when the maintainer wires `sources.yaml` to a concrete gitignore SHA.
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/

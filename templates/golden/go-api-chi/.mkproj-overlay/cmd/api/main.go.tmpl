@@ -1,0 +1,18 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+
+	"{{.ModulePath}}/internal/httpapi"
+)
+
+func main() {
+	logger := log.New(os.Stdout, "httpapi ", log.LstdFlags)
+	handler := httpapi.NewRouter(logger)
+
+	if err := http.ListenAndServe(":8080", handler); err != nil {
+		logger.Fatal(err)
+	}
+}

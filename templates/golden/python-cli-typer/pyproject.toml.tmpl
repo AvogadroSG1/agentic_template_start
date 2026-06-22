@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{.PythonPackage}}"
+version = "0.1.0"
+description = "Walking-skeleton Typer CLI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "typer>=0.12,<1.0",
+]
+
+[project.scripts]
+app = "app.main:main"

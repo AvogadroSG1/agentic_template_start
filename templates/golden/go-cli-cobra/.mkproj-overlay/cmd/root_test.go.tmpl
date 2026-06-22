@@ -1,0 +1,15 @@
+package cmd
+
+import "testing"
+
+func TestRootCommandRegistersServeAndConfigCommands(t *testing.T) {
+	command := RootCommand()
+
+	if _, _, err := command.Find([]string{"serve"}); err != nil {
+		t.Fatalf("serve command missing: %v", err)
+	}
+
+	if _, _, err := command.Find([]string{"config"}); err != nil {
+		t.Fatalf("config command missing: %v", err)
+	}
+}

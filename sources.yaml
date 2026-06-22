@@ -1,0 +1,94 @@
+gitignore_repo:
+  repo: "https://github.com/github/gitignore"
+  ref: "dcc0fc7bc2b5ba480cf117ad1be31bafceeaff46"
+
+go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "v1.3.0"
+    captured: "2026-06-20"
+
+go-api-chi:
+  kind: recipe
+  steps:
+    - checkout: "github.com/golang-standards/project-layout"
+      ref: "a9d6fae7015527b10550ebb6d6b71a71b1ef5ea7"
+      strip: [".git", "README.md", "docs"]
+    - run: "go mod init {{.ModulePath}}"
+    - run: "go get github.com/go-chi/chi/v5@v5.1.0 go.uber.org/zap@v1.27.0 github.com/spf13/viper@v1.19.0 github.com/stretchr/testify@v1.9.0"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "a9d6fae7015527b10550ebb6d6b71a71b1ef5ea7"
+    captured: "2026-06-20"
+
+python-cli-typer:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add typer"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "uv 0.11.8"
+    captured: "2026-06-20"
+
+python-fastapi:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add fastapi 'uvicorn[standard]'"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "uv 0.11.8"
+    captured: "2026-06-20"
+
+csharp-cli:
+  kind: scaffolder
+  steps:
+    - run: "dotnet new console --framework net8.0"
+    - run: "dotnet add package System.CommandLine --version 2.0.0-beta4.22272.1"
+  gitignore: VisualStudio
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: replace_guid
+      paths: ["*.csproj", "*.sln"]
+    - type: sort_files
+  resolved:
+    ref: "dotnet-sdk 10.0.203"
+    captured: "2026-06-20"
+
+csharp-webapi:
+  kind: scaffolder
+  steps:
+    - run: "dotnet new webapi --framework net8.0 --use-controllers"
+  gitignore: VisualStudio
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: replace_guid
+      paths: ["*.csproj", "*.sln"]
+    - type: sort_files
+  resolved:
+    ref: "dotnet-sdk 10.0.203"
+    captured: "2026-06-20"
