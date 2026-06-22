@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+secret_scan="$script_dir/secret-scan.sh"
+
+if [ ! -x "$secret_scan" ]; then
+  exit 0
+fi
+
+# This asset packages the cross-agent guard seam and the already-owned D9/D10
+# secret-scan slice. The remaining deny-floor rules are owned by follow-on
+# guard work and MUST be added behind their own tests rather than implied here.
+exec "$secret_scan" scan-command

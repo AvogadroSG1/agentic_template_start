@@ -1,0 +1,30 @@
+package httpapi
+
+import (
+	"bytes"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestHealthEndpointReturnsOK(t *testing.T) {
+	var logs bytes.Buffer
+	router := NewRouter(log.New(&logs, "", 0))
+
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+
+	if body := response.Body.String(); body != `{"status":"ok"}` {
+		t.Fatalf("body = %q, want %q", body, `{"status":"ok"}`)
+	}
+
+	if !bytes.Contains(logs.Bytes(), []byte("health endpoint served")) {
+		t.Fatalf("log output = %q, want health trace", logs.String())
+	}
+}

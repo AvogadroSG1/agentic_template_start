@@ -1,0 +1,94 @@
+gitignore_repo:
+  repo: "https://github.com/github/gitignore"
+  ref: "0000000000000000000000000000000000000001"
+
+go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "1111111111111111111111111111111111111111"
+    captured: "2026-06-20"
+
+go-api-chi:
+  kind: recipe
+  steps:
+    - checkout: "github.com/golang-standards/project-layout"
+      ref: "2222222222222222222222222222222222222222"
+      strip: [".git", "README.md", "docs"]
+    - run: "go mod init {{.ModulePath}}"
+    - run: "go get github.com/go-chi/chi/v5@v5.1.0 go.uber.org/zap@v1.27.0 github.com/spf13/viper@v1.19.0 github.com/stretchr/testify@v1.9.0"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "2222222222222222222222222222222222222222"
+    captured: "2026-06-20"
+
+python-cli-typer:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add typer"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "3333333333333333333333333333333333333333"
+    captured: "2026-06-20"
+
+python-fastapi:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add fastapi 'uvicorn[standard]'"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "4444444444444444444444444444444444444444"
+    captured: "2026-06-20"
+
+csharp-cli:
+  kind: scaffolder
+  steps:
+    - run: "dotnet new console --framework net8.0"
+    - run: "dotnet add package System.CommandLine --version 2.0.0-beta4.22272.1"
+  gitignore: VisualStudio
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: replace_guid
+      paths: ["*.csproj", "*.sln"]
+    - type: sort_files
+  resolved:
+    ref: "5555555555555555555555555555555555555555"
+    captured: "2026-06-20"
+
+csharp-webapi:
+  kind: scaffolder
+  steps:
+    - run: "dotnet new webapi --framework net8.0 --use-controllers"
+  gitignore: VisualStudio
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: replace_guid
+      paths: ["*.csproj", "*.sln"]
+    - type: sort_files
+  resolved:
+    ref: "6666666666666666666666666666666666666666"
+    captured: "2026-06-20"

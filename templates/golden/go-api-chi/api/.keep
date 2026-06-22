@@ -1,0 +1,1 @@
+Keep the vanilla API surface from project-layout non-empty so the refresh seam is testable.

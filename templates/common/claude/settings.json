@@ -1,0 +1,35 @@
+{
+  "enabledPlugins": {},
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.claude/hooks/guard"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bd prime"
+          },
+          {
+            "type": "command",
+            "command": "instill check-skills"
+          },
+          {
+            "type": "command",
+            "command": "command -v mkproj >/dev/null 2>&1 && mkproj sync-allowlist --check || true"
+          }
+        ]
+      }
+    ]
+  }
+}

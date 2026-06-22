@@ -1,0 +1,194 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"flag"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	allowlist "mkproj/internal/allowlist"
+	"mkproj/internal/delegate"
+	initcmd "mkproj/internal/init"
+	"mkproj/internal/project"
+	"mkproj/internal/prompt"
+	"mkproj/internal/scaffold"
+)
+
+func main() {
+	if err := run(os.Args[1:], os.DirFS(".")); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string, assets fs.FS) error {
+	command, args := selectCommand(args)
+
+	switch command {
+	case "init":
+		return runInit(args, assets)
+	case "sync-allowlist":
+		return runSyncAllowlist(args)
+	case "update":
+		return fmt.Errorf("mkproj update is not implemented yet")
+	default:
+		return fmt.Errorf("unsupported command %q", command)
+	}
+}
+
+func selectCommand(args []string) (string, []string) {
+	command := "init"
+	if len(args) > 0 {
+		switch args[0] {
+		case "init", "sync-allowlist", "update":
+			return args[0], args[1:]
+		}
+	}
+
+	return command, args
+}
+
+func runInit(args []string, assets fs.FS) error {
+	flags := flag.NewFlagSet("mkproj init", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	var inputs prompt.Inputs
+	flags.StringVar(&inputs.ProjectName, "project-name", "", "Project name")
+	flags.StringVar(&inputs.Language, "language", "", "Language")
+	flags.StringVar(&inputs.ProjectType, "project-type", "", "Project type")
+	flags.StringVar(&inputs.Stack, "stack", "", "Stack key")
+	flags.StringVar(&inputs.AuthorName, "author-name", gitConfig("user.name"), "Author name")
+	flags.StringVar(&inputs.AuthorEmail, "author-email", gitConfig("user.email"), "Author email")
+	flags.StringVar(&inputs.GitHubUser, "github-user", "", "GitHub user for module path derivation")
+	flags.StringVar(&inputs.Remote, "remote", "", "Remote choice (gh|url|none)")
+	flags.StringVar(&inputs.RemoteURL, "remote-url", "", "Remote URL when --remote url is selected")
+	flags.StringVar(&inputs.ModulePath, "module-path", "", "Module path override")
+	flags.StringVar(&inputs.BdPrefix, "bd-prefix", "", "Beads prefix override")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	var prompter prompt.Prompter
+	inputs.IsTTY = isInteractiveSession()
+	if inputs.IsTTY {
+		prompter = terminalPrompter{reader: bufio.NewReader(os.Stdin), out: os.Stdout}
+	}
+
+	resolved, err := prompt.Resolve(inputs, prompter)
+	if err != nil {
+		return err
+	}
+	vars, err := project.ResolveVariables(resolved)
+	if err != nil {
+		return err
+	}
+
+	initializer := initcmd.Initializer{
+		Writer: scaffold.Writer{Assets: assets},
+		Runner: delegate.ExecRunner{},
+	}
+
+	return initializer.Run(context.Background(), mustGetwd(), vars)
+}
+
+func runSyncAllowlist(args []string) error {
+	flags := flag.NewFlagSet("mkproj sync-allowlist", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	var checkOnly bool
+	var settingsPath string
+	flags.BoolVar(&checkOnly, "check", false, "Only report staleness")
+	flags.StringVar(&settingsPath, "path", filepath.Join(mustGetwd(), ".claude", "settings.local.json"), "settings.local.json path")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	status, err := allowlist.Sync(settingsPath, defaultAllowlistBlock(), checkOnly)
+	if err != nil {
+		return err
+	}
+	if checkOnly {
+		if status.Stale {
+			fmt.Printf("allowlist is %d version(s) behind; run mkproj sync-allowlist\n", status.Embedded-status.CurrentVersion)
+		}
+		return nil
+	}
+
+	fmt.Printf("allowlist synced to version %d\n", status.CurrentVersion)
+	return nil
+}
+
+func defaultAllowlistBlock() string {
+	return strings.Join([]string{
+		`      "Bash(git:*)",`,
+		`      "Bash(bd:*)",`,
+		`      "Bash(instill:*)",`,
+		`      "Bash(mise:*)",`,
+		`      "Bash(lefthook:*)",`,
+	}, "\n")
+}
+
+func mustGetwd() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	return wd
+}
+
+func gitConfig(key string) string {
+	output, err := exec.Command("git", "config", "--global", key).Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
+}
+
+func isInteractiveSession() bool {
+	stdinInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	stdoutInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
+	return (stdinInfo.Mode()&os.ModeCharDevice) != 0 && (stdoutInfo.Mode()&os.ModeCharDevice) != 0
+}
+
+type terminalPrompter struct {
+	reader *bufio.Reader
+	out    io.Writer
+}
+
+func (p terminalPrompter) Ask(_ string, label string, choices []string, defaultValue string) (string, error) {
+	promptText := label
+	if len(choices) > 0 {
+		promptText += " [" + strings.Join(choices, "/") + "]"
+	}
+	if defaultValue != "" {
+		promptText += " (default: " + defaultValue + ")"
+	}
+	promptText += ": "
+
+	if _, err := io.WriteString(p.out, promptText); err != nil {
+		return "", err
+	}
+	line, err := p.reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return defaultValue, nil
+	}
+
+	return line, nil
+}
