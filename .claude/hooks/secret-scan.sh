@@ -31,7 +31,7 @@ ENV_DUMP_VERBS=(
 )
 
 usage() {
-  echo "usage: $0 scan-command [--command <line>]" >&2
+  echo "usage: $0 scan-command [--command <line>] | scan-staged" >&2
 }
 
 trim() {
@@ -174,12 +174,51 @@ scan_command() {
   return 0
 }
 
+scan_staged() {
+  local staged_path
+  local blocked_paths=()
+
+  if [ $# -gt 0 ]; then
+    usage
+    return 64
+  fi
+
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while IFS= read -r staged_path; do
+    staged_path="$(trim "$staged_path")"
+    if [ -z "$staged_path" ]; then
+      continue
+    fi
+
+    if matches_secret "$staged_path"; then
+      blocked_paths+=("$staged_path")
+    fi
+  done < <(git diff --cached --name-only 2>/dev/null || true)
+
+  if [ ${#blocked_paths[@]} -eq 0 ]; then
+    return 0
+  fi
+
+  echo "BLOCKED [D9]: staged secret paths detected:" >&2
+  for staged_path in "${blocked_paths[@]}"; do
+    echo " - $staged_path" >&2
+  done
+  return 2
+}
+
 main() {
   local mode="${1:-}"
   case "$mode" in
     scan-command)
       shift
       scan_command "$@"
+      ;;
+    scan-staged)
+      shift
+      scan_staged "$@"
       ;;
     *)
       usage

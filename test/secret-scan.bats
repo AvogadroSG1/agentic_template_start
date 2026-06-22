@@ -3,6 +3,7 @@
 setup() {
   repo_root="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   script_path="$repo_root/.claude/hooks/secret-scan.sh"
+  guard_delegate_path="$repo_root/test/guard-delegates-secret-scan.sh"
 }
 
 run_scan_command_with_json() {
@@ -15,6 +16,25 @@ run_scan_command_with_flag() {
   run "$script_path" scan-command --command "$command_line"
 }
 
+setup_git_fixture() {
+  fixture_dir="$BATS_TEST_TMPDIR/repo-$BATS_TEST_NUMBER"
+  mkdir -p "$fixture_dir"
+  git init "$fixture_dir" >/dev/null
+  git -C "$fixture_dir" config user.name "Bats Tester"
+  git -C "$fixture_dir" config user.email "bats@example.com"
+}
+
+stage_fixture_file() {
+  local relative_path="$1"
+  mkdir -p "$fixture_dir/$(dirname "$relative_path")"
+  printf 'fixture\n' >"$fixture_dir/$relative_path"
+  git -C "$fixture_dir" add "$relative_path"
+}
+
+run_scan_staged() {
+  run bash -lc "cd \"$fixture_dir\" && \"$script_path\" scan-staged"
+}
+
 @test "D9 blocks dotenv paths from guard JSON regardless of binary" {
   run_scan_command_with_json "cat .env"
 
@@ -23,7 +43,7 @@ run_scan_command_with_flag() {
   [[ "$output" == *".env"* ]]
 }
 
-@test "D9 blocks secret path tokens across supported command forms" {
+@test "D9 blocks sensitive path tokens across supported command forms" {
   local commands=(
     "awk '1' config/.env"
     "git show HEAD:.env"
@@ -107,4 +127,69 @@ run_scan_command_with_flag() {
   run "$script_path" no-such-mode
 
   [ "$status" -eq 64 ]
+}
+
+@test "scan-staged blocks staged dotenv files" {
+  setup_git_fixture
+  stage_fixture_file ".env"
+
+  run_scan_staged
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED [D9]"* ]]
+  [[ "$output" == *".env"* ]]
+}
+
+@test "scan-staged blocks staged key files" {
+  setup_git_fixture
+  stage_fixture_file "config/deploy.key"
+
+  run_scan_staged
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED [D9]"* ]]
+  [[ "$output" == *"config/deploy.key"* ]]
+}
+
+@test "scan-staged allows example and template carve-outs" {
+  setup_git_fixture
+  stage_fixture_file ".env.example"
+  stage_fixture_file "config/api.key.template"
+
+  run_scan_staged
+
+  [ "$status" -eq 0 ]
+}
+
+@test "scan-staged allows safe staged files and empty index" {
+  setup_git_fixture
+  stage_fixture_file "README.md"
+
+  run_scan_staged
+  [ "$status" -eq 0 ]
+
+  git -C "$fixture_dir" reset >/dev/null
+  run_scan_staged
+  [ "$status" -eq 0 ]
+}
+
+@test "scan-staged exits cleanly outside a git repo" {
+  fixture_dir="$BATS_TEST_TMPDIR/not-a-repo"
+  mkdir -p "$fixture_dir"
+
+  run_scan_staged
+
+  [ "$status" -eq 0 ]
+}
+
+@test "guard-style wrapper delegates D9 and D10 checks to the shared scanner" {
+  run bash -lc "jq -nc '{tool_input:{command:\"git show HEAD:.env\"}}' | \"$guard_delegate_path\""
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED [D9]"* ]]
+
+  run bash -lc "jq -nc '{tool_input:{command:\"printenv\"}}' | \"$guard_delegate_path\""
+
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED [D10]"* ]]
 }
