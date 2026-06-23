@@ -40,13 +40,18 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		return failWithRecovery(targetDir, "phase 1 scaffold writer", err)
 	}
 
+	manifestSnapshot, err := captureFile(filepath.Join(targetDir, ".claude", "skill-manifest.json"))
+	if err != nil {
+		return failWithRecovery(targetDir, "skill manifest snapshot", err)
+	}
+
 	steps := []struct {
 		name    string
 		command string
 		args    []string
 	}{
 		{name: "bd init", command: "bd", args: []string{"init"}},
-		{name: "instill init", command: "instill", args: []string{"init"}},
+		{name: "instill init", command: "instill", args: []string{"init", "--force"}},
 		{name: "instill pick-skills", command: "instill", args: []string{"pick-skills"}},
 		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
 		{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}},
@@ -55,6 +60,11 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	for _, step := range steps {
 		if err := i.Runner.Run(ctx, targetDir, step.name, step.command, step.args...); err != nil {
 			return failWithRecovery(targetDir, step.name, err)
+		}
+		if step.name == "instill init" {
+			if err := manifestSnapshot.Restore(); err != nil {
+				return failWithRecovery(targetDir, "skill manifest restore", err)
+			}
 		}
 		if step.name == "lefthook install" {
 			if err := repairBeadsHookChain(targetDir); err != nil {
@@ -72,6 +82,41 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	}
 
 	return nil
+}
+
+type fileSnapshot struct {
+	path string
+	mode os.FileMode
+	data []byte
+}
+
+func captureFile(path string) (fileSnapshot, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fileSnapshot{}, nil
+		}
+		return fileSnapshot{}, err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fileSnapshot{}, err
+	}
+
+	return fileSnapshot{
+		path: path,
+		mode: info.Mode().Perm(),
+		data: data,
+	}, nil
+}
+
+func (s fileSnapshot) Restore() error {
+	if s.path == "" {
+		return nil
+	}
+
+	return os.WriteFile(s.path, s.data, s.mode)
 }
 
 func repairBeadsHookChain(targetDir string) error {
