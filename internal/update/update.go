@@ -61,6 +61,16 @@ type seamCheckReport struct {
 	Collisions []string
 }
 
+type templateContract struct {
+	templatePaths map[string]string
+	sentinelFiles []sentinelFile
+}
+
+type sentinelFile struct {
+	path string
+	data []byte
+}
+
 var guidPattern = regexp.MustCompile(`(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`)
 
 func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, git GitRunner) error {
@@ -289,7 +299,7 @@ func renderString(input string, vars project.Variables) (string, error) {
 }
 
 func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir string, rules []normalizeRule, vars project.Variables) error {
-	templateContract, err := loadTemplateContract(committedStackDir)
+	contract, err := loadTemplateContract(committedStackDir)
 	if err != nil {
 		return err
 	}
@@ -297,7 +307,9 @@ func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir st
 		return fmt.Errorf("create refreshed vanilla dir: %w", err)
 	}
 
-	return filepath.WalkDir(workspaceDir, func(path string, d fs.DirEntry, walkErr error) error {
+	writtenDirs := map[string]struct{}{".": {}}
+	writtenFiles := map[string]struct{}{}
+	if err := filepath.WalkDir(workspaceDir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -312,6 +324,7 @@ func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir st
 
 		committedRelPath := filepath.ToSlash(relPath)
 		if d.IsDir() {
+			writtenDirs[committedRelPath] = struct{}{}
 			return os.MkdirAll(filepath.Join(targetDir, filepath.FromSlash(committedRelPath)), 0o755)
 		}
 
@@ -324,7 +337,7 @@ func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir st
 			return fmt.Errorf("normalize %q: %w", committedRelPath, err)
 		}
 		templated := applyTemplatePlaceholders(normalized, vars)
-		if contractPath, ok := templateContract[renderedCatalogPath(committedRelPath)]; ok {
+		if contractPath, ok := contract.templatePaths[renderedCatalogPath(committedRelPath)]; ok {
 			committedRelPath = contractPath
 		} else if !bytes.Equal(templated, normalized) {
 			committedRelPath += ".tmpl"
@@ -337,16 +350,43 @@ func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir st
 		if err := os.WriteFile(targetPath, templated, 0o644); err != nil {
 			return fmt.Errorf("write refreshed file %q: %w", committedRelPath, err)
 		}
+		writtenFiles[committedRelPath] = struct{}{}
+		markContractParents(writtenDirs, committedRelPath)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	for _, sentinel := range contract.sentinelFiles {
+		parent := filepath.ToSlash(filepath.Dir(sentinel.path))
+		if parent == "" {
+			parent = "."
+		}
+		if _, ok := writtenDirs[parent]; !ok {
+			continue
+		}
+		if _, ok := writtenFiles[sentinel.path]; ok {
+			continue
+		}
+
+		targetPath := filepath.Join(targetDir, filepath.FromSlash(sentinel.path))
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return fmt.Errorf("prepare refreshed sentinel %q: %w", sentinel.path, err)
+		}
+		if err := os.WriteFile(targetPath, sentinel.data, 0o644); err != nil {
+			return fmt.Errorf("write refreshed sentinel %q: %w", sentinel.path, err)
+		}
+	}
+
+	return nil
 }
 
-func loadTemplateContract(committedStackDir string) (map[string]string, error) {
-	contract := map[string]string{}
+func loadTemplateContract(committedStackDir string) (templateContract, error) {
+	contract := templateContract{templatePaths: map[string]string{}}
 	if _, err := os.Stat(committedStackDir); errors.Is(err, fs.ErrNotExist) {
 		return contract, nil
 	} else if err != nil {
-		return nil, fmt.Errorf("stat committed stack dir: %w", err)
+		return templateContract{}, fmt.Errorf("stat committed stack dir: %w", err)
 	}
 
 	err := filepath.WalkDir(committedStackDir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -370,15 +410,42 @@ func loadTemplateContract(committedStackDir string) (map[string]string, error) {
 			return nil
 		}
 		if strings.HasSuffix(relPath, ".tmpl") {
-			contract[renderedCatalogPath(relPath)] = relPath
+			contract.templatePaths[renderedCatalogPath(relPath)] = relPath
+			return nil
 		}
+		if !isDirectorySentinelPath(relPath) {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read committed sentinel %q: %w", relPath, err)
+		}
+		contract.sentinelFiles = append(contract.sentinelFiles, sentinelFile{path: relPath, data: append([]byte(nil), data...)})
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walk committed stack dir: %w", err)
+		return templateContract{}, fmt.Errorf("walk committed stack dir: %w", err)
 	}
 
 	return contract, nil
+}
+
+func markContractParents(dirs map[string]struct{}, relPath string) {
+	dir := filepath.ToSlash(filepath.Dir(relPath))
+	for dir != "." && dir != "/" && dir != "" {
+		dirs[dir] = struct{}{}
+		dir = filepath.ToSlash(filepath.Dir(dir))
+	}
+	dirs["."] = struct{}{}
+}
+
+func isDirectorySentinelPath(relPath string) bool {
+	switch filepath.Base(relPath) {
+	case ".keep", ".gitkeep":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeFile(relPath string, data []byte, rules []normalizeRule) ([]byte, error) {
@@ -815,8 +882,14 @@ func writeFileAtomically(path string, data []byte, mode os.FileMode) error {
 	return nil
 }
 
+var nowUTC = func() time.Time { return time.Now().UTC() }
+
 func currentDateString() string {
-	return time.Now().Format("2006-01-02")
+	return currentDateStringAt(nowUTC())
+}
+
+func currentDateStringAt(now time.Time) string {
+	return now.UTC().Format("2006-01-02")
 }
 
 func replaceVanillaLayer(committedStackDir string, refreshedVanilla string) error {

@@ -117,3 +117,80 @@ ok   mkproj/internal/scaffold
 ok   mkproj/internal/update
 ok   mkproj/test
 ```
+
+## Final Fix Wave
+- Expanded the refresh catalog contract beyond `.tmpl` files so committed directory sentinels such as `.keep` and `.gitkeep` survive checkout-based refreshes when the refreshed vanilla tree still contains the corresponding directory.
+- Added an end-to-end checkout refresh proof that snapshots into `templates/golden/recipe-stack/` and verifies vendored behavior: stripped checkout noise stays out, stale vanilla is removed, and the committed `.keep` sentinel remains in place.
+- Replaced the implicit wall-clock capture with an explicit UTC-normalized date source via `nowUTC` plus `currentDateStringAt`, and added a focused unit test that proves the date rolls forward by UTC rather than local time zone.
+- Kept the existing seam proofs intact while removing the deadlock-prone first draft of the injected clock override.
+
+### Final Fix RED
+Command:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+```
+Relevant failing output before the final implementation:
+```text
+# mkproj/internal/update [mkproj/internal/update.test]
+internal/update/update_test.go:422:20: undefined: nowUTC
+internal/update/update_test.go:423:2: undefined: nowUTC
+internal/update/update_test.go:427:3: undefined: nowUTC
+FAIL	mkproj/internal/update [build failed]
+FAIL
+```
+Why expected:
+- The new UTC-stability proof referenced an explicit clock seam that did not exist yet, so the package failed to compile until `internal/update/update.go` exposed the injected date source.
+
+### Final Fix Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update	0.681s
+ok   mkproj/internal/update	0.326s
+ok   mkproj/cmd/mkproj	8.216s
+ok   mkproj/cmd/mkproj	9.227s
+ok   mkproj/internal/allowlist	1.318s
+ok   mkproj/internal/catalog	0.359s
+ok   mkproj/internal/init	4.071s
+ok   mkproj/internal/project	0.680s
+ok   mkproj/internal/prompt	0.916s
+ok   mkproj/internal/remote	1.143s
+ok   mkproj/internal/scaffold	0.555s
+ok   mkproj/internal/update	2.012s
+ok   mkproj/test	12.835s
+```
+
+
+## Final Review Fix Wave
+- Preserved non-template catalog sentinels during refresh by carrying committed `.keep` / `.gitkeep` files forward when the refreshed vanilla tree still materializes the owning directory.
+- Added a checkout-based end-to-end refresh proof that snapshots a vendored recipe stack back into `templates/golden/<stack>` and verifies stripped files, stale-file removal, and sentinel preservation.
+- Made `resolved.captured` UTC-stable through an explicit `nowUTC` seam plus a direct UTC test, so the date logic no longer depends on the maintainer's local timezone.
+
+### Final Review Fix Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update
+ok   mkproj/internal/update
+ok   mkproj/cmd/mkproj
+ok   mkproj/cmd/mkproj
+ok   mkproj/internal/allowlist
+ok   mkproj/internal/catalog
+ok   mkproj/internal/init
+ok   mkproj/internal/project
+ok   mkproj/internal/prompt
+ok   mkproj/internal/remote
+ok   mkproj/internal/scaffold
+ok   mkproj/internal/update
+ok   mkproj/test
+```

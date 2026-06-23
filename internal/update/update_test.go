@@ -185,6 +185,69 @@ func TestRunExecutesCheckoutStripAndRunRecipe(t *testing.T) {
 	}
 }
 
+func TestRunRefreshesCheckoutStackAndPreservesVendoredSentinel(t *testing.T) {
+	t.Parallel()
+
+	const checkoutSources = `recipe-stack:
+  kind: recipe
+  steps:
+    - checkout: "github.com/example/project-layout"
+      ref: "abc123"
+      strip: [".git", "README.md"]
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+  resolved:
+    ref: "abc123"
+    captured: "2026-06-20"
+`
+
+	assets := fstest.MapFS{
+		"sources.yaml": {Data: []byte(checkoutSources)},
+	}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), checkoutSources)
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "cmd", "main.go"), "old\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "pkg", "skeleton", ".keep"), "")
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "stale.txt"), "stale\n")
+
+	git := &recordingGitRunner{cloneFunc: func(dir string) {
+		mustWriteFile(t, filepath.Join(dir, ".git", "HEAD"), "ref: refs/heads/main")
+		mustWriteFile(t, filepath.Join(dir, "README.md"), "remove me\n")
+		mustWriteFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+		if err := os.MkdirAll(filepath.Join(dir, "pkg", "skeleton"), 0o755); err != nil {
+			t.Fatalf("MkdirAll(empty vendored dir) error = %v", err)
+		}
+	}}
+	runner := &recordingCommandRunner{}
+
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "recipe-stack", runner, git); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	if got := strings.Join(git.operations, ","); got != "clone:github.com/example/project-layout,checkout:abc123" {
+		t.Fatalf("git operations = %q", got)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("runner calls = %#v, want none", runner.calls)
+	}
+	if got := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "cmd", "main.go")); got != "package main\n" {
+		t.Fatalf("main.go = %q", got)
+	}
+	if got := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "pkg", "skeleton", ".keep")); got != "" {
+		t.Fatalf(".keep = %q, want empty sentinel", got)
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "stale.txt")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("stale.txt should be removed, err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, "templates", "golden", "recipe-stack", "README.md")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("README.md should be stripped, err = %v", err)
+	}
+}
+
 func TestRunReturnsHelpfulErrorWhenToolIsMissing(t *testing.T) {
 	t.Parallel()
 
@@ -355,6 +418,12 @@ func TestRunPreservesCustomStyledSourcesOnNoOpRefresh(t *testing.T) {
 	}
 }
 
+func TestCurrentDateStringUsesUTC(t *testing.T) {
+	if got := currentDateStringAt(time.Date(2026, 6, 23, 23, 30, 0, 0, time.FixedZone("utc-minus-11", -11*60*60))); got != "2026-06-24" {
+		t.Fatalf("currentDateStringAt() = %q, want UTC date 2026-06-24", got)
+	}
+}
+
 func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 	t.Parallel()
 
@@ -372,8 +441,11 @@ func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 	})
 
 	sources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
-	if !strings.Contains(sources, "captured: \""+time.Now().Format("2006-01-02")+"\"") {
+	if strings.Contains(sources, "captured: \"2026-06-20\"") {
 		t.Fatalf("sources.yaml = %q, want updated captured date", sources)
+	}
+	if !strings.Contains(sources, "captured: \"") {
+		t.Fatalf("sources.yaml = %q, want captured field", sources)
 	}
 	if !strings.Contains(sources, "ref:") || !strings.Contains(sources, "v1.3.0") {
 		t.Fatalf("sources.yaml = %q, want pinned ref", sources)
