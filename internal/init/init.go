@@ -2,6 +2,7 @@ package initcmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,8 +15,9 @@ import (
 )
 
 type Initializer struct {
-	Writer scaffold.Writer
-	Runner delegate.Runner
+	Writer      scaffold.Writer
+	Runner      delegate.Runner
+	Interactive bool
 }
 
 func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Variables) error {
@@ -44,6 +46,19 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	if err != nil {
 		return failWithRecovery(targetDir, "skill manifest snapshot", err)
 	}
+	settingsSnapshot, err := captureFile(filepath.Join(targetDir, ".claude", "settings.local.json"))
+	if err != nil {
+		return failWithRecovery(targetDir, "settings.local.json snapshot", err)
+	}
+
+	instillInitArgs := []string{"init", "--force"}
+	if !i.Interactive {
+		skills, err := readManifestSkills(filepath.Join(targetDir, ".claude", "skill-manifest.json"))
+		if err != nil {
+			return failWithRecovery(targetDir, "skill manifest read", err)
+		}
+		instillInitArgs = append(instillInitArgs, "--skills", strings.Join(skills, ","))
+	}
 
 	steps := []struct {
 		name    string
@@ -51,13 +66,40 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		args    []string
 	}{
 		{name: "bd init", command: "bd", args: []string{"init"}},
-		{name: "instill init", command: "instill", args: []string{"init", "--force"}},
-		{name: "instill pick-skills", command: "instill", args: []string{"pick-skills"}},
-		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
-		{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}},
+		{name: "instill init", command: "instill", args: instillInitArgs},
 	}
+	if i.Interactive {
+		steps = append(steps, struct {
+			name    string
+			command string
+			args    []string
+		}{name: "instill pick-skills", command: "instill", args: []string{"pick-skills"}})
+	}
+	steps = append(steps, struct {
+		name    string
+		command string
+		args    []string
+	}{name: "instill check-skills", command: "instill", args: []string{"check-skills"}})
+	steps = append(steps, struct {
+		name    string
+		command string
+		args    []string
+	}{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}})
+
+	settingsHidden := false
+	defer func() {
+		if settingsHidden {
+			_ = settingsSnapshot.Restore()
+		}
+	}()
 
 	for _, step := range steps {
+		if step.name == "instill init" {
+			if err := settingsSnapshot.Hide(); err != nil {
+				return failWithRecovery(targetDir, "settings.local.json hide", err)
+			}
+			settingsHidden = true
+		}
 		if err := i.Runner.Run(ctx, targetDir, step.name, step.command, step.args...); err != nil {
 			return failWithRecovery(targetDir, step.name, err)
 		}
@@ -65,6 +107,12 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 			if err := manifestSnapshot.Restore(); err != nil {
 				return failWithRecovery(targetDir, "skill manifest restore", err)
 			}
+		}
+		if step.name == "instill check-skills" && settingsHidden {
+			if err := settingsSnapshot.Restore(); err != nil {
+				return failWithRecovery(targetDir, "settings.local.json restore", err)
+			}
+			settingsHidden = false
 		}
 		if step.name == "lefthook install" {
 			if err := repairBeadsHookChain(targetDir); err != nil {
@@ -111,12 +159,53 @@ func captureFile(path string) (fileSnapshot, error) {
 	}, nil
 }
 
+type skillManifest struct {
+	Skills []string `json:"skills"`
+}
+
+func readManifestSkills(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var manifest skillManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, err
+	}
+
+	skills := make([]string, 0, len(manifest.Skills))
+	for _, skill := range manifest.Skills {
+		skill = strings.TrimSpace(skill)
+		if skill == "" {
+			continue
+		}
+		skills = append(skills, skill)
+	}
+	if len(skills) == 0 {
+		return nil, fmt.Errorf("skill manifest %s did not contain any skills", path)
+	}
+
+	return skills, nil
+}
+
 func (s fileSnapshot) Restore() error {
 	if s.path == "" {
 		return nil
 	}
 
 	return os.WriteFile(s.path, s.data, s.mode)
+}
+
+func (s fileSnapshot) Hide() error {
+	if s.path == "" {
+		return nil
+	}
+	if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
 }
 
 func repairBeadsHookChain(targetDir string) error {

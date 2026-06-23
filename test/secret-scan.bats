@@ -107,6 +107,7 @@ run_scan_staged() {
     "cat .env.example"
     "vim .env.template"
     "cat config.sample"
+    "cat .claude/hooks/secret-scan.sh"
     "cat README.md"
   )
 
@@ -115,6 +116,15 @@ run_scan_staged() {
 
     [ "$status" -eq 0 ]
   done
+}
+
+@test "scan-staged allows the scaffolded shared scanner path" {
+  setup_git_fixture
+  stage_fixture_file ".claude/hooks/secret-scan.sh"
+
+  run_scan_staged
+
+  [ "$status" -eq 0 ]
 }
 
 @test "empty stdin is clean" {

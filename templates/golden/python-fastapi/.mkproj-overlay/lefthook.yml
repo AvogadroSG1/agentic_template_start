@@ -1,6 +1,6 @@
 # Extended from the minimal secret-scan hook contract; x2k adds lint/format/test gates here.
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
     secret-scan:
       run: ./.claude/hooks/secret-scan.sh scan-staged

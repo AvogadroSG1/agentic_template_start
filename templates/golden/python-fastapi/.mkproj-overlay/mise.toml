@@ -3,7 +3,7 @@ python = "3.14.4"
 ruff = "latest"
 pyright = "latest"
 pip-audit = "latest"
-lefthook = "latest"
+"ubi:evilmartians/lefthook" = "latest"
 
 [tasks.fmt]
 run = "ruff format ."

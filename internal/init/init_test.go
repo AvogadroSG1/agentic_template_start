@@ -3,6 +3,7 @@ package initcmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,60 @@ import (
 )
 
 func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner, Interactive: true}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := []string{
+		"git init",
+		"git identity name",
+		"git identity email",
+		"bd init",
+		"instill init",
+		"instill pick-skills",
+		"instill check-skills",
+		"lefthook install",
+		"git add",
+		"git commit",
+	}
+	if got := runner.stepNames(); !equalStrings(got, want) {
+		t.Fatalf("step order = %#v, want %#v", got, want)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force")
+}
+
+func TestInitializerUsesManifestSkillsWithoutTUIWhenNonInteractive(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -55,7 +110,6 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		"git identity email",
 		"bd init",
 		"instill init",
-		"instill pick-skills",
 		"instill check-skills",
 		"lefthook install",
 		"git add",
@@ -65,7 +119,7 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		t.Fatalf("step order = %#v, want %#v", got, want)
 	}
 
-	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force")
+	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang/golang-cli,productivity/mise")
 }
 
 func TestInitializerRestoresScaffoldedManifestAfterForcedInstillInit(t *testing.T) {
@@ -96,7 +150,7 @@ func TestInitializerRestoresScaffoldedManifestAfterForcedInstillInit(t *testing.
 		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
 		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
 	}}
-	init := Initializer{Writer: writer, Runner: runner}
+	init := Initializer{Writer: writer, Runner: runner, Interactive: true}
 
 	vars, err := project.ResolveVariables(project.Input{
 		ProjectName: "Sample App",
@@ -127,6 +181,63 @@ func TestInitializerRestoresScaffoldedManifestAfterForcedInstillInit(t *testing.
 	}
 }
 
+func TestInitializerTemporarilyHidesSettingsLocalJSONFromInstill(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	settingsPath := filepath.Join(tempDir, ".claude", "settings.local.json")
+	runner := &recordingRunner{
+		afterStep: func(dir string, step string, _ string, _ ...string) error {
+			if !strings.HasPrefix(step, "instill ") {
+				return nil
+			}
+			if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+				return fmt.Errorf("%s should be hidden during %s", settingsPath, step)
+			}
+			return nil
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":                  {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":                  {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/settings.local.json.tmpl": {Data: []byte("{\n  // managed comment\n  \"permissions\": {\"allow\": []}\n}\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	gotSettings, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", settingsPath, err)
+	}
+	wantSettings := "{\n  // managed comment\n  \"permissions\": {\"allow\": []}\n}\n"
+	if string(gotSettings) != wantSettings {
+		t.Fatalf("settings.local.json after Run() = %q, want %q", string(gotSettings), wantSettings)
+	}
+}
+
 func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
 	t.Parallel()
 
@@ -140,7 +251,7 @@ func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
 		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
 		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
 	}}
-	init := Initializer{Writer: writer, Runner: runner}
+	init := Initializer{Writer: writer, Runner: runner, Interactive: true}
 
 	err := init.Run(context.Background(), tempDir, project.Variables{
 		ProjectName: "Sample App",
@@ -185,7 +296,7 @@ func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
 		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
 		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
 	}}
-	init := Initializer{Writer: writer, Runner: runner}
+	init := Initializer{Writer: writer, Runner: runner, Interactive: true}
 
 	err := init.Run(context.Background(), tempDir, project.Variables{
 		ProjectName: "Sample App",

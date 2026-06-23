@@ -96,8 +96,9 @@ func runInit(args []string, assets fs.FS) error {
 	}
 
 	initializer := initcmd.Initializer{
-		Writer: scaffold.Writer{Assets: assets},
-		Runner: delegate.ExecRunner{},
+		Writer:      scaffold.Writer{Assets: assets},
+		Runner:      delegate.ExecRunner{},
+		Interactive: inputs.IsTTY,
 	}
 
 	return initializer.Run(context.Background(), cwd, vars)

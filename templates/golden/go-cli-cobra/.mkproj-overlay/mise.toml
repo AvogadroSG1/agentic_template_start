@@ -1,8 +1,8 @@
 [tools]
 go = "1.26.2"
-golangci-lint = "latest"
-govulncheck = "latest"
-lefthook = "latest"
+"github:golangci/golangci-lint" = "latest"
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+"ubi:evilmartians/lefthook" = "latest"
 
 [tasks.fmt]
 run = "gofmt -w $(find . -name '*.go' -not -path './.git/*')"
