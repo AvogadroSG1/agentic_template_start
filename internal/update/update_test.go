@@ -7,9 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 type commandCall struct {
@@ -36,6 +39,8 @@ type recordingGitRunner struct {
 	operations []string
 	cloneFunc  func(dir string)
 }
+
+var workingDirMu sync.Mutex
 
 func (r *recordingGitRunner) Clone(_ context.Context, repo string, dir string) error {
 	r.operations = append(r.operations, "clone:"+repo)
@@ -70,10 +75,14 @@ func TestRunExecutesSingleStepRecipeInOrder(t *testing.T) {
 	}
 	runner := &recordingCommandRunner{}
 	git := &recordingGitRunner{}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "single-step:\n")
 
-	if err := Run(context.Background(), assets, "single-step", runner, git); err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "single-step", runner, git); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
 
 	if len(git.operations) != 0 {
 		t.Fatalf("git operations = %#v, want none", git.operations)
@@ -130,9 +139,14 @@ func TestRunExecutesCheckoutStripAndRunRecipe(t *testing.T) {
 		return nil
 	}}
 
-	if err := Run(context.Background(), assets, "recipe-stack", runner, git); err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "recipe-stack:\n")
+
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "recipe-stack", runner, git); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
 
 	if got := strings.Join(git.operations, ","); got != "clone:github.com/example/project-layout,checkout:abc123" {
 		t.Fatalf("git operations = %q", got)
@@ -166,8 +180,13 @@ func TestRunReturnsHelpfulErrorWhenToolIsMissing(t *testing.T) {
 	runner := &recordingCommandRunner{runFunc: func(_ string, _ string, _ string, _ ...string) error {
 		return exec.ErrNotFound
 	}}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "single-step:\n")
 
-	err := Run(context.Background(), assets, "single-step", runner, &recordingGitRunner{})
+	var err error
+	withWorkingDir(t, repoRoot, func() {
+		err = Run(context.Background(), assets, "single-step", runner, &recordingGitRunner{})
+	})
 	if err == nil {
 		t.Fatal("Run() error = nil, want missing tool error")
 	}
@@ -175,24 +194,6 @@ func TestRunReturnsHelpfulErrorWhenToolIsMissing(t *testing.T) {
 		if !strings.Contains(err.Error(), snippet) {
 			t.Fatalf("Run() error = %q, want snippet %q", err, snippet)
 		}
-	}
-}
-
-func mustWriteFile(t *testing.T, path string, contents string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%s) error = %v", path, err)
-	}
-	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
-		t.Fatalf("WriteFile(%s) error = %v", path, err)
-	}
-}
-
-func assertMissingPath(t *testing.T, path string) {
-	t.Helper()
-	_, err := os.Stat(path)
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("Stat(%s) error = %v, want not exists", path, err)
 	}
 }
 
@@ -212,14 +213,377 @@ func TestRunPreservesQuotedArguments(t *testing.T) {
 `)},
 	}
 	runner := &recordingCommandRunner{}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "quoted-step:\n")
 
-	if err := Run(context.Background(), assets, "quoted-step", runner, &recordingGitRunner{}); err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "quoted-step", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
 	if len(runner.calls) != 1 {
 		t.Fatalf("runner calls = %#v, want 1 call", runner.calls)
 	}
 	if got := strings.Join(runner.calls[0].Args, "|"); got != "add|fastapi|uvicorn[standard]" {
 		t.Fatalf("args = %q, want %q", got, "add|fastapi|uvicorn[standard]")
 	}
+}
+
+func TestRunRefreshesRepresentativeStackAndPreservesOverlay(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt"), "stale\n")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	mustWriteFile(t, overlayPath, "package cmd\n")
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	for _, relPath := range []string{
+		"templates/golden/go-cli-cobra/go.mod.tmpl",
+		"templates/golden/go-cli-cobra/main.go.tmpl",
+		"templates/golden/go-cli-cobra/cmd/root.go.tmpl",
+		"templates/golden/go-cli-cobra/cmd/serve.go.tmpl",
+		"templates/golden/go-cli-cobra/cmd/config.go.tmpl",
+	} {
+		if _, err := os.Stat(filepath.Join(repoRoot, relPath)); err != nil {
+			t.Fatalf("Stat(%s) error = %v", relPath, err)
+		}
+	}
+
+	goMod := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "go.mod.tmpl"))
+	if !strings.Contains(goMod, "module {{.ModulePath}}") {
+		t.Fatalf("go.mod.tmpl = %q, want ModulePath template", goMod)
+	}
+
+	mainGo := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "main.go.tmpl"))
+	if !strings.Contains(mainGo, `"{{.ModulePath}}/cmd"`) {
+		t.Fatalf("main.go.tmpl = %q, want ModulePath import template", mainGo)
+	}
+
+	if got := mustReadFile(t, overlayPath); got != "package cmd\n" {
+		t.Fatalf("overlay changed to %q", got)
+	}
+
+	if _, err := os.Stat(filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("stale vanilla file should be removed, err = %v", err)
+	}
+}
+
+func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt"), "stale\n")
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	sources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if !strings.Contains(sources, "captured: \""+time.Now().Format("2006-01-02")+"\"") {
+		t.Fatalf("sources.yaml = %q, want updated captured date", sources)
+	}
+	if !strings.Contains(sources, "ref: v1.3.0") {
+		t.Fatalf("sources.yaml = %q, want pinned ref", sources)
+	}
+}
+
+func TestRunIsIdempotentWhenRepresentativeStackIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl"), "package cmd\n")
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("first Run() error = %v", err)
+		}
+	})
+
+	beforeTree := captureTree(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra"))
+	beforeSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("second Run() error = %v", err)
+		}
+	})
+
+	afterTree := captureTree(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra"))
+	afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if !reflect.DeepEqual(afterTree, beforeTree) {
+		t.Fatalf("golden tree changed on second run\nbefore=%#v\nafter=%#v", beforeTree, afterTree)
+	}
+	if afterSources != beforeSources {
+		t.Fatalf("sources.yaml changed on second run\nbefore=%s\nafter=%s", beforeSources, afterSources)
+	}
+}
+
+func TestRunFailsLoudOnOrphanedOverlayPathAndWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	rootGoPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl")
+	mustWriteFile(t, rootGoPath, "before\n")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	mustWriteFile(t, overlayPath, "package cmd\n")
+
+	runner := &recordingCommandRunner{runFunc: func(dir string, step string, command string, args ...string) error {
+		if err := assertRenderedRepresentativeCommand(step, command, args...); err != nil {
+			return err
+		}
+		switch {
+		case len(args) >= 1 && args[0] == "init":
+			modulePath := lastArgValue(args, "--pkg-name")
+			mustWriteFile(t, filepath.Join(dir, "go.mod"), "module "+modulePath+"\n")
+			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n")
+		case len(args) >= 2 && args[0] == "add" && args[1] == "serve":
+			return nil
+		case len(args) >= 2 && args[0] == "add" && args[1] == "config":
+			return nil
+		default:
+			return errors.New("unexpected command")
+		}
+		return nil
+	}}
+
+	var err error
+	withWorkingDir(t, repoRoot, func() {
+		err = Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{})
+	})
+
+	if err == nil {
+		t.Fatal("Run() error = nil, want orphan failure")
+	}
+	if !strings.Contains(err.Error(), "orphan") || !strings.Contains(err.Error(), "cmd/root_test.go.tmpl") {
+		t.Fatalf("Run() error = %q, want orphan path details", err)
+	}
+	if got := mustReadFile(t, rootGoPath); got != "before\n" {
+		t.Fatalf("root.go.tmpl changed to %q", got)
+	}
+}
+
+func TestRunAllowsCollisionWhilePreservingOverlay(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root.go.tmpl")
+	mustWriteFile(t, overlayPath, "package cmd\n\nconst OverlayWins = true\n")
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	rootGo := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl"))
+	if !strings.Contains(rootGo, "var rootCmd") {
+		t.Fatalf("root.go.tmpl = %q, want refreshed vanilla root command", rootGo)
+	}
+	if got := mustReadFile(t, overlayPath); got != "package cmd\n\nconst OverlayWins = true\n" {
+		t.Fatalf("overlay changed to %q", got)
+	}
+}
+
+const embeddedRepresentativeSourcesYAML = `go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "v1.3.0"
+    captured: "2026-06-20"
+`
+
+func representativeStackAssets() fs.FS {
+	return fstest.MapFS{
+		"sources.yaml": {Data: []byte(embeddedRepresentativeSourcesYAML)},
+	}
+}
+
+func seedRepresentativeTemplateContract(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	for relPath, contents := range map[string]string{
+		"templates/golden/go-cli-cobra/go.mod.tmpl":        "module {{.ModulePath}}\n",
+		"templates/golden/go-cli-cobra/main.go.tmpl":       "package main\n",
+		"templates/golden/go-cli-cobra/cmd/root.go.tmpl":   "package cmd\n",
+		"templates/golden/go-cli-cobra/cmd/serve.go.tmpl":  "package cmd\n",
+		"templates/golden/go-cli-cobra/cmd/config.go.tmpl": "package cmd\n",
+	} {
+		mustWriteFile(t, filepath.Join(repoRoot, relPath), contents)
+	}
+}
+
+func newRepresentativeStackRunner(t *testing.T) *recordingCommandRunner {
+	t.Helper()
+
+	return &recordingCommandRunner{runFunc: func(dir string, step string, command string, args ...string) error {
+		if err := assertRenderedRepresentativeCommand(step, command, args...); err != nil {
+			return err
+		}
+
+		switch {
+		case len(args) >= 1 && args[0] == "init":
+			modulePath := lastArgValue(args, "--pkg-name")
+			if modulePath == "" {
+				return errors.New("missing --pkg-name")
+			}
+			mustWriteFile(t, filepath.Join(dir, "go.mod"), "module "+modulePath+"\n\ngo 1.24.4\n")
+			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n\n\t\""+modulePath+"/cmd\"\n)\n\nfunc main() {\n\tif err := cmd.Execute(); err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\tos.Exit(1)\n\t}\n}\n")
+			mustWriteFile(t, filepath.Join(dir, "cmd", "root.go"), "package cmd\n\nvar rootCmd = struct{}{}\n")
+		case len(args) >= 2 && args[0] == "add" && args[1] == "serve":
+			mustWriteFile(t, filepath.Join(dir, "cmd", "serve.go"), "package cmd\n\nfunc serve() {}\n")
+		case len(args) >= 2 && args[0] == "add" && args[1] == "config":
+			mustWriteFile(t, filepath.Join(dir, "cmd", "config.go"), "package cmd\n\nfunc config() {}\n")
+		default:
+			return errors.New("unexpected representative stack command")
+		}
+
+		return nil
+	}}
+}
+
+func assertRenderedRepresentativeCommand(step string, command string, args ...string) error {
+	if command != "cobra-cli" {
+		return errors.New("unexpected command")
+	}
+
+	joined := strings.Join(append([]string{command}, args...), " ")
+	if strings.Contains(joined, "{{.") {
+		return errors.New("unrendered placeholder in command")
+	}
+
+	switch {
+	case strings.Contains(step, "step 1"):
+		if len(args) < 3 || args[0] != "init" || args[1] != "--pkg-name" {
+			return errors.New("unexpected init arguments")
+		}
+	case strings.Contains(step, "step 2"):
+		if len(args) < 2 || args[0] != "add" || args[1] != "serve" {
+			return errors.New("unexpected serve arguments")
+		}
+	case strings.Contains(step, "step 3"):
+		if len(args) < 2 || args[0] != "add" || args[1] != "config" {
+			return errors.New("unexpected config arguments")
+		}
+	}
+
+	return nil
+}
+
+func lastArgValue(args []string, flag string) string {
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == flag {
+			return args[index+1]
+		}
+	}
+	return ""
+}
+
+func mustWriteFile(t *testing.T, path string, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("WriteFile(%s) error = %v", path, err)
+	}
+}
+
+func mustReadFile(t *testing.T, path string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+
+	return string(data)
+}
+
+func assertMissingPath(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Stat(%s) error = %v, want not exists", path, err)
+	}
+}
+
+func captureTree(t *testing.T, root string) map[string]string {
+	t.Helper()
+
+	files := map[string]string{}
+	if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		files[filepath.ToSlash(relPath)] = mustReadFile(t, path)
+		return nil
+	}); err != nil {
+		t.Fatalf("WalkDir(%s) error = %v", root, err)
+	}
+
+	return files
+}
+
+func withWorkingDir(t *testing.T, dir string, run func()) {
+	t.Helper()
+
+	workingDirMu.Lock()
+	defer workingDirMu.Unlock()
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir(%s) error = %v", dir, err)
+	}
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("restore dir error = %v", err)
+		}
+	}()
+
+	run()
 }
