@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -41,6 +42,7 @@ type recordingGitRunner struct {
 }
 
 var workingDirMu sync.Mutex
+var stderrMu sync.Mutex
 
 func (r *recordingGitRunner) Clone(_ context.Context, repo string, dir string) error {
 	r.operations = append(r.operations, "clone:"+repo)
@@ -76,7 +78,16 @@ func TestRunExecutesSingleStepRecipeInOrder(t *testing.T) {
 	runner := &recordingCommandRunner{}
 	git := &recordingGitRunner{}
 	repoRoot := t.TempDir()
-	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "single-step:\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `single-step:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name example.com/sample"
+  gitignore: Go
+  normalize: []
+  resolved:
+    ref: "v1.3.0"
+    captured: "2026-06-20"
+`)
 
 	withWorkingDir(t, repoRoot, func() {
 		if err := Run(context.Background(), assets, "single-step", runner, git); err != nil {
@@ -140,7 +151,19 @@ func TestRunExecutesCheckoutStripAndRunRecipe(t *testing.T) {
 	}}
 
 	repoRoot := t.TempDir()
-	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "recipe-stack:\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `recipe-stack:
+  kind: recipe
+  steps:
+    - checkout: "github.com/example/project-layout"
+      ref: "abc123"
+      strip: [".git", "README.md", "docs"]
+    - run: "go mod init example.com/sample"
+  gitignore: Go
+  normalize: []
+  resolved:
+    ref: "abc123"
+    captured: "2026-06-20"
+`)
 
 	withWorkingDir(t, repoRoot, func() {
 		if err := Run(context.Background(), assets, "recipe-stack", runner, git); err != nil {
@@ -181,7 +204,16 @@ func TestRunReturnsHelpfulErrorWhenToolIsMissing(t *testing.T) {
 		return exec.ErrNotFound
 	}}
 	repoRoot := t.TempDir()
-	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "single-step:\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `single-step:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name example.com/sample"
+  gitignore: Go
+  normalize: []
+  resolved:
+    ref: "v1.3.0"
+    captured: "2026-06-20"
+`)
 
 	var err error
 	withWorkingDir(t, repoRoot, func() {
@@ -214,7 +246,16 @@ func TestRunPreservesQuotedArguments(t *testing.T) {
 	}
 	runner := &recordingCommandRunner{}
 	repoRoot := t.TempDir()
-	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), "quoted-step:\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `quoted-step:
+  kind: scaffolder
+  steps:
+    - run: "uv add fastapi 'uvicorn[standard]'"
+  gitignore: Python
+  normalize: []
+  resolved:
+    ref: "uv 0.11.8"
+    captured: "2026-06-20"
+`)
 
 	withWorkingDir(t, repoRoot, func() {
 		if err := Run(context.Background(), assets, "quoted-step", runner, &recordingGitRunner{}); err != nil {
@@ -278,6 +319,42 @@ func TestRunRefreshesRepresentativeStackAndPreservesOverlay(t *testing.T) {
 	}
 }
 
+func TestRunPreservesCustomStyledSourcesOnNoOpRefresh(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	beforeSources := `go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: 'cobra-cli init --pkg-name {{.ModulePath}}'
+    - run: 'cobra-cli add serve'
+    - run: 'cobra-cli add config'
+  gitignore: Go
+  normalize:
+    - { type: line_endings }
+    - { type: trailing_newline }
+    - { type: sort_files }
+  resolved:
+    ref: 'v1.3.0'
+    captured: '2026-06-20'
+`
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), beforeSources)
+	seedRepresentativeNoOpVanilla(t, repoRoot)
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if afterSources != beforeSources {
+		t.Fatalf("sources.yaml changed on no-op refresh\nbefore=%s\nafter=%s", beforeSources, afterSources)
+	}
+}
+
 func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 	t.Parallel()
 
@@ -298,7 +375,7 @@ func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 	if !strings.Contains(sources, "captured: \""+time.Now().Format("2006-01-02")+"\"") {
 		t.Fatalf("sources.yaml = %q, want updated captured date", sources)
 	}
-	if !strings.Contains(sources, "ref: v1.3.0") {
+	if !strings.Contains(sources, "ref:") || !strings.Contains(sources, "v1.3.0") {
 		t.Fatalf("sources.yaml = %q, want pinned ref", sources)
 	}
 }
@@ -344,6 +421,7 @@ func TestRunFailsLoudOnOrphanedOverlayPathAndWritesNothing(t *testing.T) {
 	assets := representativeStackAssets()
 	repoRoot := t.TempDir()
 	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	beforeSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
 	seedRepresentativeTemplateContract(t, repoRoot)
 	rootGoPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl")
 	mustWriteFile(t, rootGoPath, "before\n")
@@ -383,6 +461,57 @@ func TestRunFailsLoudOnOrphanedOverlayPathAndWritesNothing(t *testing.T) {
 	if got := mustReadFile(t, rootGoPath); got != "before\n" {
 		t.Fatalf("root.go.tmpl changed to %q", got)
 	}
+	afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if afterSources != beforeSources {
+		t.Fatalf("sources.yaml changed on orphan failure\nbefore=%s\nafter=%s", beforeSources, afterSources)
+	}
+}
+
+func TestRunLeavesVanillaUntouchedWhenSourcesRepinFails(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	sourcesPath := filepath.Join(repoRoot, "sources.yaml")
+	mustWriteFile(t, sourcesPath, embeddedRepresentativeSourcesYAML)
+	beforeSources := mustReadFile(t, sourcesPath)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	rootGoPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl")
+	mustWriteFile(t, rootGoPath, "before\n")
+	stalePath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt")
+	mustWriteFile(t, stalePath, "stale\n")
+	if err := os.Chmod(sourcesPath, 0o444); err != nil {
+		t.Fatalf("Chmod(%s) error = %v", sourcesPath, err)
+	}
+	if err := os.Chmod(repoRoot, 0o555); err != nil {
+		t.Fatalf("Chmod(%s) error = %v", repoRoot, err)
+	}
+	defer func() {
+		_ = os.Chmod(repoRoot, 0o755)
+		_ = os.Chmod(sourcesPath, 0o644)
+	}()
+
+	runner := newRepresentativeStackRunner(t)
+	var err error
+	withWorkingDir(t, repoRoot, func() {
+		err = Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{})
+	})
+
+	if err == nil {
+		t.Fatal("Run() error = nil, want sources repin failure")
+	}
+	if !strings.Contains(err.Error(), "write mutable sources.yaml") {
+		t.Fatalf("Run() error = %q, want mutable sources write failure", err)
+	}
+	if got := mustReadFile(t, rootGoPath); got != "before\n" {
+		t.Fatalf("root.go.tmpl changed to %q", got)
+	}
+	if got := mustReadFile(t, sourcesPath); got != beforeSources {
+		t.Fatalf("sources.yaml changed on repin failure\nbefore=%s\nafter=%s", beforeSources, got)
+	}
+	if got := mustReadFile(t, stalePath); got != "stale\n" {
+		t.Fatalf("stale.txt changed to %q", got)
+	}
 }
 
 func TestRunAllowsCollisionWhilePreservingOverlay(t *testing.T) {
@@ -396,11 +525,18 @@ func TestRunAllowsCollisionWhilePreservingOverlay(t *testing.T) {
 	mustWriteFile(t, overlayPath, "package cmd\n\nconst OverlayWins = true\n")
 
 	runner := newRepresentativeStackRunner(t)
+	var stderr string
 	withWorkingDir(t, repoRoot, func() {
-		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
-			t.Fatalf("Run() error = %v", err)
-		}
+		stderr = withCapturedStderr(t, func() {
+			if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
+		})
 	})
+
+	if !strings.Contains(stderr, "warning: overlay collision(s) for stack go-cli-cobra: cmd/root.go.tmpl") {
+		t.Fatalf("stderr = %q, want collision warning", stderr)
+	}
 
 	rootGo := mustReadFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl"))
 	if !strings.Contains(rootGo, "var rootCmd") {
@@ -442,6 +578,35 @@ func seedRepresentativeTemplateContract(t *testing.T, repoRoot string) {
 		"templates/golden/go-cli-cobra/cmd/root.go.tmpl":   "package cmd\n",
 		"templates/golden/go-cli-cobra/cmd/serve.go.tmpl":  "package cmd\n",
 		"templates/golden/go-cli-cobra/cmd/config.go.tmpl": "package cmd\n",
+	} {
+		mustWriteFile(t, filepath.Join(repoRoot, relPath), contents)
+	}
+}
+
+func seedRepresentativeNoOpVanilla(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	for relPath, contents := range map[string]string{
+		"templates/golden/go-cli-cobra/go.mod.tmpl": "module {{.ModulePath}}\n\ngo 1.24.4\n",
+		"templates/golden/go-cli-cobra/main.go.tmpl": `package main
+
+import (
+	"fmt"
+	"os"
+
+	"{{.ModulePath}}/cmd"
+)
+
+func main() {
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+`,
+		"templates/golden/go-cli-cobra/cmd/root.go.tmpl":   "package cmd\n\nvar rootCmd = struct{}{}\n",
+		"templates/golden/go-cli-cobra/cmd/serve.go.tmpl":  "package cmd\n\nfunc serve() {}\n",
+		"templates/golden/go-cli-cobra/cmd/config.go.tmpl": "package cmd\n\nfunc config() {}\n",
 	} {
 		mustWriteFile(t, filepath.Join(repoRoot, relPath), contents)
 	}
@@ -564,6 +729,36 @@ func captureTree(t *testing.T, root string) map[string]string {
 	}
 
 	return files
+}
+
+func withCapturedStderr(t *testing.T, run func()) string {
+	t.Helper()
+
+	stderrMu.Lock()
+	defer stderrMu.Unlock()
+
+	original := os.Stderr
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	os.Stderr = writer
+	defer func() {
+		os.Stderr = original
+	}()
+
+	run()
+	if err := writer.Close(); err != nil {
+		t.Fatalf("stderr writer close error = %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("stderr read error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("stderr reader close error = %v", err)
+	}
+	return string(data)
 }
 
 func withWorkingDir(t *testing.T, dir string, run func()) {

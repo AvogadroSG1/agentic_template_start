@@ -66,3 +66,37 @@ ok   	mkproj/test	10.903s
 
 ## Concerns
 - I left the existing untracked `templates/golden/recipe-stack/keep.txt` artifact untouched per instruction. The final focused and full test runs passed without depending on it, so I did not spend time cleaning it up in this pass.
+
+
+## Review Fix Wave
+- Narrowed mutable `sources.yaml` repin to a text-preserving `captured` line update, so a no-op refresh leaves custom quoting and inline normalize formatting untouched.
+- Moved repin into a planned apply/rollback path ahead of the vanilla swap, so refresh aborts before touching `templates/golden/<stack>` when `sources.yaml` planning fails, and rolls back `sources.yaml` if the subsequent vanilla replacement fails.
+- Strengthened the seam proof with three additional cases:
+  - no-op refresh preserves custom-styled `sources.yaml` byte-for-byte
+  - orphan failure leaves `sources.yaml` untouched as well as vanilla files
+  - collision emits the required warning on `stderr`
+- Reframed the repin-failure proof around invalid mutable `sources.yaml` planning rather than a flaky filesystem permission trigger.
+
+### Review Fix Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update
+ok   mkproj/internal/update
+ok   mkproj/cmd/mkproj
+ok   mkproj/cmd/mkproj
+ok   mkproj/internal/allowlist
+ok   mkproj/internal/catalog
+ok   mkproj/internal/init
+ok   mkproj/internal/project
+ok   mkproj/internal/prompt
+ok   mkproj/internal/remote
+ok   mkproj/internal/scaffold
+ok   mkproj/internal/update
+ok   mkproj/test
+```

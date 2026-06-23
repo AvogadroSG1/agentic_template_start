@@ -167,14 +167,25 @@ func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, 
 		return err
 	}
 
+	sourcesPlan, err := planMutableSourcesRepin(filepath.Join(repoRoot, "sources.yaml"), stack, vanillaChanged)
+	if err != nil {
+		return err
+	}
+
 	seamReport, err := checkOverlaySeam(stackRoot, refreshedVanilla)
 	if err != nil {
 		return err
 	}
-	if err := replaceVanillaLayer(stackRoot, refreshedVanilla); err != nil {
+	if err := sourcesPlan.apply(); err != nil {
 		return err
 	}
-	if err := repinMutableSources(filepath.Join(repoRoot, "sources.yaml"), stack, row, vanillaChanged); err != nil {
+	sourcesApplied := sourcesPlan.needsWrite()
+	if err := replaceVanillaLayer(stackRoot, refreshedVanilla); err != nil {
+		if sourcesApplied {
+			if rollbackErr := sourcesPlan.rollback(); rollbackErr != nil {
+				return fmt.Errorf("replace vanilla layer: %v (rollback mutable sources: %v)", err, rollbackErr)
+			}
+		}
 		return err
 	}
 	if len(seamReport.Collisions) > 0 {
@@ -590,109 +601,218 @@ func captureVanillaSnapshot(root string) (map[string]string, error) {
 	return snapshot, nil
 }
 
-func repinMutableSources(path string, stack string, row sourceRow, vanillaChanged bool) error {
+type sourcesRepinPlan struct {
+	path     string
+	original []byte
+	updated  []byte
+	mode     os.FileMode
+}
+
+func planMutableSourcesRepin(path string, stack string, vanillaChanged bool) (sourcesRepinPlan, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read mutable sources.yaml: %w", err)
+		return sourcesRepinPlan{}, fmt.Errorf("read mutable sources.yaml: %w", err)
 	}
-
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("decode mutable sources.yaml: %w", err)
-	}
-	root := ensureMappingDocument(&doc)
-	index := findMappingKey(root, stack)
-	existingCaptured := ""
-	if index >= 0 {
-		existingCaptured = extractCaptured(root.Content[index+1])
-	}
-
-	updatedRow := row
-	switch {
-	case vanillaChanged:
-		updatedRow.Resolved.Captured = currentDateString()
-	case existingCaptured != "":
-		updatedRow.Resolved.Captured = existingCaptured
-	}
-	rowNode, err := marshalRowNode(updatedRow)
+	info, err := os.Stat(path)
 	if err != nil {
-		return err
+		return sourcesRepinPlan{}, fmt.Errorf("stat mutable sources.yaml: %w", err)
 	}
-	if index >= 0 {
-		root.Content[index+1] = &rowNode
-	} else {
-		root.Content = append(root.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: stack},
-			&rowNode,
-		)
+	plan := sourcesRepinPlan{
+		path:     path,
+		original: append([]byte(nil), data...),
+		mode:     info.Mode().Perm(),
+	}
+	if !vanillaChanged {
+		return plan, nil
 	}
 
-	updatedData, err := yaml.Marshal(&doc)
+	updated, err := updateCapturedLine(data, stack, currentDateString())
 	if err != nil {
-		return fmt.Errorf("encode mutable sources.yaml: %w", err)
+		return sourcesRepinPlan{}, err
 	}
-	if bytes.Equal(data, updatedData) {
+	if bytes.Equal(data, updated) {
+		return plan, nil
+	}
+	plan.updated = updated
+	return plan, nil
+}
+
+func (p sourcesRepinPlan) needsWrite() bool {
+	return p.updated != nil
+}
+
+func (p sourcesRepinPlan) apply() error {
+	if !p.needsWrite() {
 		return nil
 	}
-	if err := os.WriteFile(path, updatedData, 0o644); err != nil {
+	if err := writeFileAtomically(p.path, p.updated, p.mode); err != nil {
 		return fmt.Errorf("write mutable sources.yaml: %w", err)
 	}
 	return nil
 }
 
-func ensureMappingDocument(doc *yaml.Node) *yaml.Node {
-	if doc.Kind == 0 {
-		doc.Kind = yaml.DocumentNode
+func (p sourcesRepinPlan) rollback() error {
+	if !p.needsWrite() {
+		return nil
 	}
-	if len(doc.Content) == 0 || doc.Content[0] == nil {
-		doc.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	if err := writeFileAtomically(p.path, p.original, p.mode); err != nil {
+		return fmt.Errorf("restore mutable sources.yaml: %w", err)
 	}
-	root := doc.Content[0]
-	if root.Kind == 0 {
-		root.Kind = yaml.MappingNode
-		root.Tag = "!!map"
-	}
-	return root
+	return nil
 }
 
-func findMappingKey(node *yaml.Node, key string) int {
-	if node == nil || node.Kind != yaml.MappingNode {
-		return -1
+func updateCapturedLine(data []byte, stack string, captured string) ([]byte, error) {
+	lines := strings.SplitAfter(string(data), "\n")
+	stackIndex, err := findTopLevelKeyLine(lines, stack)
+	if err != nil {
+		return nil, err
 	}
-	for index := 0; index < len(node.Content)-1; index += 2 {
-		if node.Content[index].Value == key {
+	stackEnd := findBlockEnd(lines, stackIndex+1, 0)
+	resolvedIndex, resolvedIndent, err := findChildKeyLine(lines, stackIndex+1, stackEnd, 0, "resolved")
+	if err != nil {
+		return nil, err
+	}
+	resolvedEnd := findBlockEnd(lines, resolvedIndex+1, resolvedIndent)
+	capturedIndex, _, err := findChildKeyLine(lines, resolvedIndex+1, resolvedEnd, resolvedIndent, "captured")
+	if err != nil {
+		return nil, err
+	}
+	updatedLine, err := rewriteScalarLine(lines[capturedIndex], "captured", captured)
+	if err != nil {
+		return nil, err
+	}
+	lines[capturedIndex] = updatedLine
+	return []byte(strings.Join(lines, "")), nil
+}
+
+func findTopLevelKeyLine(lines []string, key string) (int, error) {
+	for index, line := range lines {
+		trimmed := trimLine(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if lineIndent(line) == 0 && trimmed == key+":" {
+			return index, nil
+		}
+	}
+	return -1, fmt.Errorf("stack %q missing from mutable sources.yaml", key)
+}
+
+func findChildKeyLine(lines []string, start int, end int, parentIndent int, key string) (int, int, error) {
+	for index := start; index < end; index++ {
+		trimmed := trimLine(lines[index])
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		indent := lineIndent(lines[index])
+		if indent <= parentIndent {
+			continue
+		}
+		if strings.HasPrefix(trimmed, key+":") {
+			return index, indent, nil
+		}
+	}
+	return -1, 0, fmt.Errorf("%s missing from mutable sources.yaml stack row", key)
+}
+
+func findBlockEnd(lines []string, start int, parentIndent int) int {
+	for index := start; index < len(lines); index++ {
+		trimmed := trimLine(lines[index])
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if lineIndent(lines[index]) <= parentIndent {
 			return index
 		}
 	}
-	return -1
+	return len(lines)
 }
 
-func extractCaptured(node *yaml.Node) string {
-	resolvedIndex := findMappingKey(node, "resolved")
-	if resolvedIndex < 0 {
-		return ""
+func rewriteScalarLine(line string, key string, value string) (string, error) {
+	body, newline := splitLineEnding(line)
+	trimmedLeft := strings.TrimLeft(body, " \t")
+	if !strings.HasPrefix(trimmedLeft, key+":") {
+		return "", fmt.Errorf("line %q does not contain key %q", line, key)
 	}
-	resolved := node.Content[resolvedIndex+1]
-	capturedIndex := findMappingKey(resolved, "captured")
-	if capturedIndex < 0 {
-		return ""
+
+	prefixEnd := len(body) - len(trimmedLeft) + len(key) + 1
+	for prefixEnd < len(body) && (body[prefixEnd] == ' ' || body[prefixEnd] == '\t') {
+		prefixEnd++
 	}
-	return strings.TrimSpace(resolved.Content[capturedIndex+1].Value)
+	prefix := body[:prefixEnd]
+	rest := body[prefixEnd:]
+	if rest == "" {
+		return prefix + value + newline, nil
+	}
+	if rest[0] == '\'' || rest[0] == '"' {
+		quote := rest[0]
+		closing := strings.LastIndexByte(rest[1:], quote)
+		if closing < 0 {
+			return "", fmt.Errorf("unterminated quoted scalar for %s", key)
+		}
+		closing++
+		suffix := rest[closing+1:]
+		return prefix + string(quote) + value + string(quote) + suffix + newline, nil
+	}
+
+	suffixIndex := len(rest)
+	for index, r := range rest {
+		if r == ' ' || r == '\t' {
+			suffixIndex = index
+			break
+		}
+	}
+	suffix := rest[suffixIndex:]
+	return prefix + value + suffix + newline, nil
 }
 
-func marshalRowNode(row sourceRow) (yaml.Node, error) {
-	encoded, err := yaml.Marshal(row)
+func splitLineEnding(line string) (string, string) {
+	switch {
+	case strings.HasSuffix(line, "\r\n"):
+		return strings.TrimSuffix(line, "\r\n"), "\r\n"
+	case strings.HasSuffix(line, "\n"):
+		return strings.TrimSuffix(line, "\n"), "\n"
+	default:
+		return line, ""
+	}
+}
+
+func trimLine(line string) string {
+	body, _ := splitLineEnding(line)
+	return strings.TrimSpace(body)
+}
+
+func lineIndent(line string) int {
+	body, _ := splitLineEnding(line)
+	return len(body) - len(strings.TrimLeft(body, " "))
+}
+
+func writeFileAtomically(path string, data []byte, mode os.FileMode) error {
+	tempFile, err := os.CreateTemp(filepath.Dir(path), ".mkproj-sources-*")
 	if err != nil {
-		return yaml.Node{}, fmt.Errorf("encode source row: %w", err)
+		return err
 	}
-	var doc yaml.Node
-	if err := yaml.Unmarshal(encoded, &doc); err != nil {
-		return yaml.Node{}, fmt.Errorf("decode source row: %w", err)
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+
+	if mode == 0 {
+		mode = 0o644
 	}
-	if len(doc.Content) == 0 || doc.Content[0] == nil {
-		return yaml.Node{}, fmt.Errorf("encoded source row was empty")
+	if err := tempFile.Chmod(mode); err != nil {
+		_ = tempFile.Close()
+		return err
 	}
-	return *doc.Content[0], nil
+	if _, err := tempFile.Write(data); err != nil {
+		_ = tempFile.Close()
+		return err
+	}
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return err
+	}
+	return nil
 }
 
 func currentDateString() string {
