@@ -10,18 +10,21 @@
 
 ### secret-scan-and-hooks
 
-- Status: pending
+- Status: complete
 - Issues: `02o`, `485`, `79r`, `7sn`
+- Landed: PR `#3` plus tracker sync PR `#4`
 
 ### gate-pipeline
 
-- Status: pending
+- Status: complete
 - Issues: `x2k`, `ud1`, `wqh.2`
+- Landed: slice issues closed before the current conformance run; tracker sync PR `#7` is on `main`
 
 ### walking-skeleton-smoke
 
-- Status: pending
+- Status: complete
 - Issues: `uuw`, `wqh.1`
+- Landed: slice issues are closed in Beads; execution worktree history retains branch `codex-mkproj-walking-skeleton`
 
 ### allowlist-reconciler
 
@@ -30,10 +33,12 @@
 
 ### maintainer-refresh
 
-- Status: pending
+- Status: complete
 - Issues: `cjl`, `wqh.3`
+- Landed: PR `#8` plus tracker sync PR `#9`
 
 ### guideline-publication-conformance
 
-- Status: pending
+- Status: complete
 - Issues: `zz8`, `ebp`
+- Landed: `ai_support` PR `#3` published the canonical guideline files; mkproj PR `#10` enforced the floor and aligned shipped overlays
