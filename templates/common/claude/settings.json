@@ -18,11 +18,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bd prime"
+            "command": "bd prime || true"
           },
           {
             "type": "command",
-            "command": "instill check-skills"
+            "command": "instill check-skills || true"
           },
           {
             "type": "command",

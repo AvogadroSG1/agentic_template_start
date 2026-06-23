@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"mkproj/internal/delegate"
 	"mkproj/internal/project"
@@ -55,6 +56,11 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		if err := i.Runner.Run(ctx, targetDir, step.name, step.command, step.args...); err != nil {
 			return failWithRecovery(targetDir, step.name, err)
 		}
+		if step.name == "lefthook install" {
+			if err := repairBeadsHookChain(targetDir); err != nil {
+				return failWithRecovery(targetDir, "lefthook chain repair", err)
+			}
+		}
 	}
 
 	if err := remote.Publish(ctx, i.Runner, targetDir, remote.PublishOptions{
@@ -66,6 +72,59 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	}
 
 	return nil
+}
+
+func repairBeadsHookChain(targetDir string) error {
+	hooksDir := filepath.Join(targetDir, ".beads", "hooks")
+	entries, err := os.ReadDir(hooksDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".old") {
+			continue
+		}
+		if err := repairBeadsHook(hooksDir, entry.Name()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func repairBeadsHook(hooksDir string, oldName string) error {
+	hookName := strings.TrimSuffix(oldName, ".old")
+	hookPath := filepath.Join(hooksDir, hookName)
+	lefthookPath := hookPath + ".lefthook"
+
+	if _, err := os.Stat(hookPath); err != nil {
+		return err
+	}
+	if _, err := os.Stat(lefthookPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(hookPath, lefthookPath); err != nil {
+		return err
+	}
+
+	wrapper := chainedHookWrapper(hookName)
+	return os.WriteFile(hookPath, []byte(wrapper), 0o755)
+}
+
+func chainedHookWrapper(hookName string) string {
+	return fmt.Sprintf(`#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+"$script_dir/%[1]s.old" "$@"
+exec "$script_dir/%[1]s.lefthook" "$@"
+`, hookName)
 }
 
 func failWithRecovery(targetDir string, step string, err error) error {
