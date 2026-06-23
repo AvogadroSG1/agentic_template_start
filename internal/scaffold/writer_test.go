@@ -190,3 +190,13 @@ func TestTemplateSecretScanMatchesSharedScanner(t *testing.T) {
 		t.Fatalf("template secret scanner drifted from shared scanner")
 	}
 }
+
+func TestTemplateGuardMatchesSharedGuard(t *testing.T) {
+	t.Parallel()
+
+	shared := readFile(t, filepath.Join("..", "..", ".claude", "hooks", "guard"))
+	template := readFile(t, filepath.Join("..", "..", "templates", "common", "claude", "hooks", "guard"))
+	if template != shared {
+		t.Fatalf("template guard drifted from shared guard")
+	}
+}
