@@ -12,7 +12,7 @@ run = "ruff format ."
 run = "ruff check . && pyright"
 
 [tasks.test]
-run = "pytest -q"
+run = "pytest -q --cov=."
 
 [tasks.ci]
 run = "mise run fmt && mise run lint && mise run test && pip-audit"

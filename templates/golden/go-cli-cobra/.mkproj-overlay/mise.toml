@@ -11,7 +11,7 @@ run = "gofmt -w $(find . -name '*.go' -not -path './.git/*')"
 run = "golangci-lint run ./..."
 
 [tasks.test]
-run = "go test ./..."
+run = "go test -cover ./..."
 
 [tasks.ci]
 run = "mise run fmt && mise run lint && mise run test && govulncheck ./..."

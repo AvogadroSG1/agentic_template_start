@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestHealthEndpointReturnsOK(t *testing.T) {
@@ -20,8 +22,8 @@ func TestHealthEndpointReturnsOK(t *testing.T) {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
 
-	if body := response.Body.String(); body != `{"status":"ok"}` {
-		t.Fatalf("body = %q, want %q", body, `{"status":"ok"}`)
+	if diff := cmp.Diff(`{"status":"ok"}`, response.Body.String()); diff != "" {
+		t.Fatalf("body mismatch (-want +got):\n%s", diff)
 	}
 
 	if !bytes.Contains(logs.Bytes(), []byte("health endpoint served")) {
