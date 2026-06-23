@@ -60,7 +60,7 @@ ok   	mkproj/test	10.903s
 - `.superpowers/sdd/task-6-report.md`
 
 ## Self-review findings
-- The repin logic now updates `sources.yaml` only after the seam checks and vanilla write succeed, so orphan failures still write nothing.
+- The repin logic now plans and applies the mutable `sources.yaml` change before the vanilla swap, then rolls it back if the committed vanilla replacement fails, so seam and write failures still leave the repo consistent.
 - The mutable row writer preserves the existing `captured` value on a no-op refresh, which keeps the second run byte-stable.
 - The YAML encoder now omits empty step and normalize fields so the repo-root row stays within the intended recipe schema.
 
@@ -76,6 +76,23 @@ ok   	mkproj/test	10.903s
   - orphan failure leaves `sources.yaml` untouched as well as vanilla files
   - collision emits the required warning on `stderr`
 - Reframed the repin-failure proof around invalid mutable `sources.yaml` planning rather than a flaky filesystem permission trigger.
+
+### Review Fix RED
+Command:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+```
+Relevant failing output before the fix wave:
+```text
+--- FAIL: TestRunPreservesCustomStyledSourcesOnNoOpRefresh (0.04s)
+    update_test.go:352: sources.yaml changed on no-op refresh
+--- FAIL: TestRunLeavesVanillaUntouchedWhenSourcesRepinFails (0.05s)
+    update_test.go:504: root.go.tmpl changed after repin failure
+FAIL
+```
+Why expected:
+- The first failure proved the repo-root `sources.yaml` repin still churned formatting and quoting on a no-op refresh.
+- The second failure proved the write ordering still let committed vanilla content change even when the mutable `sources.yaml` repin path failed.
 
 ### Review Fix Verification
 Commands:
