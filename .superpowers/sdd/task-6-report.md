@@ -194,3 +194,51 @@ ok   mkproj/internal/scaffold
 ok   mkproj/internal/update
 ok   mkproj/test
 ```
+
+## Final Bounded Fix Wave
+- Made the current maintainer refresh scope explicit: `internal/update` now supports Go stacks only, covering the representative `go-cli-cobra` seam and the vendored Go recipe path. Non-Go stacks fail clearly before any workspace creation or repo writes.
+- Replaced the in-place vanilla rewrite with a staged copy-and-swap flow that copies refreshed vanilla into a sibling temp tree, copies the committed `.mkproj-overlay/` byte-for-byte into that staged tree, and only then swaps the committed stack root. This closes the partial-rewrite risk on mid-copy failure while preserving overlay content exactly.
+- Added focused proof for the two reviewer concerns:
+  - unsupported non-Go stack leaves `sources.yaml`, the committed stack tree, and runner/git activity untouched
+  - staged replacement failure leaves the committed vanilla tree, overlay, and mutable `sources.yaml` unchanged
+  - the existing vendored Go checkout refresh proof still passes under the narrowed scope
+
+### Final Bounded RED
+Command:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+```
+Relevant failing output before the last implementation:
+```text
+--- FAIL: TestRunFailsClearlyForUnsupportedNonGoStackBeforeWrites (0.04s)
+    update_test.go:371: Run() error = nil, want unsupported language failure
+FAIL
+FAIL	mkproj/internal/update	0.609s
+FAIL
+```
+Why expected:
+- The new scope proof showed that `Run` still attempted a Python stack instead of rejecting it before mutable work, so the representative-proof boundary was still implicit rather than enforced in code.
+
+### Final Bounded Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update	0.664s
+ok   mkproj/internal/update	0.352s
+ok   mkproj/cmd/mkproj	9.264s
+ok   mkproj/cmd/mkproj	9.015s
+ok   mkproj/internal/allowlist	0.513s
+ok   mkproj/internal/catalog	1.049s
+ok   mkproj/internal/init	4.239s
+ok   mkproj/internal/project	0.679s
+ok   mkproj/internal/prompt	1.538s
+ok   mkproj/internal/remote	0.815s
+ok   mkproj/internal/scaffold	1.722s
+ok   mkproj/internal/update	2.045s
+ok   mkproj/test	13.439s
+```

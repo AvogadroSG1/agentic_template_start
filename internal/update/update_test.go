@@ -299,11 +299,11 @@ func TestRunPreservesQuotedArguments(t *testing.T) {
 		"sources.yaml": {Data: []byte(`quoted-step:
   kind: scaffolder
   steps:
-    - run: "uv add fastapi 'uvicorn[standard]'"
-  gitignore: Python
+    - run: "custom-tool add 'quoted value'"
+  gitignore: Go
   normalize: []
   resolved:
-    ref: "uv 0.11.8"
+    ref: "custom-tool 1.0.0"
     captured: "2026-06-20"
 `)},
 	}
@@ -312,11 +312,11 @@ func TestRunPreservesQuotedArguments(t *testing.T) {
 	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `quoted-step:
   kind: scaffolder
   steps:
-    - run: "uv add fastapi 'uvicorn[standard]'"
-  gitignore: Python
+    - run: "custom-tool add 'quoted value'"
+  gitignore: Go
   normalize: []
   resolved:
-    ref: "uv 0.11.8"
+    ref: "custom-tool 1.0.0"
     captured: "2026-06-20"
 `)
 
@@ -328,8 +328,64 @@ func TestRunPreservesQuotedArguments(t *testing.T) {
 	if len(runner.calls) != 1 {
 		t.Fatalf("runner calls = %#v, want 1 call", runner.calls)
 	}
-	if got := strings.Join(runner.calls[0].Args, "|"); got != "add|fastapi|uvicorn[standard]" {
-		t.Fatalf("args = %q, want %q", got, "add|fastapi|uvicorn[standard]")
+	if got := strings.Join(runner.calls[0].Args, "|"); got != "add|quoted value" {
+		t.Fatalf("args = %q, want %q", got, "add|quoted value")
+	}
+}
+
+func TestRunFailsClearlyForUnsupportedNonGoStackBeforeWrites(t *testing.T) {
+	t.Parallel()
+
+	const pythonSources = `python-cli-typer:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add typer"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+  resolved:
+    ref: "uv 0.11.8"
+    captured: "2026-06-20"
+`
+
+	assets := fstest.MapFS{
+		"sources.yaml": {Data: []byte(pythonSources)},
+	}
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), pythonSources)
+	stackRoot := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer")
+	mustWriteFile(t, filepath.Join(stackRoot, "pyproject.toml.tmpl"), "name = \"{{.PythonPackage}}\"\n")
+	beforeTree := captureTree(t, stackRoot)
+	beforeSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	runner := &recordingCommandRunner{}
+	git := &recordingGitRunner{}
+
+	var err error
+	withWorkingDir(t, repoRoot, func() {
+		err = Run(context.Background(), assets, "python-cli-typer", runner, git)
+	})
+
+	if err == nil {
+		t.Fatal("Run() error = nil, want unsupported language failure")
+	}
+	for _, snippet := range []string{"Go stacks only", "python-cli-typer", "python"} {
+		if !strings.Contains(err.Error(), snippet) {
+			t.Fatalf("Run() error = %q, want snippet %q", err, snippet)
+		}
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("runner calls = %#v, want none", runner.calls)
+	}
+	if len(git.operations) != 0 {
+		t.Fatalf("git operations = %#v, want none", git.operations)
+	}
+	if afterTree := captureTree(t, stackRoot); !reflect.DeepEqual(afterTree, beforeTree) {
+		t.Fatalf("python stack changed on unsupported refresh\nbefore=%#v\nafter=%#v", beforeTree, afterTree)
+	}
+	if afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml")); afterSources != beforeSources {
+		t.Fatalf("sources.yaml changed on unsupported refresh\nbefore=%s\nafter=%s", beforeSources, afterSources)
 	}
 }
 
@@ -536,6 +592,55 @@ func TestRunFailsLoudOnOrphanedOverlayPathAndWritesNothing(t *testing.T) {
 	afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
 	if afterSources != beforeSources {
 		t.Fatalf("sources.yaml changed on orphan failure\nbefore=%s\nafter=%s", beforeSources, afterSources)
+	}
+}
+
+func TestRunLeavesCommittedVanillaUntouchedWhenStagedReplaceFails(t *testing.T) {
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	sourcesPath := filepath.Join(repoRoot, "sources.yaml")
+	mustWriteFile(t, sourcesPath, embeddedRepresentativeSourcesYAML)
+	beforeSources := mustReadFile(t, sourcesPath)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	rootGoPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl")
+	mustWriteFile(t, rootGoPath, "before\n")
+	stalePath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt")
+	mustWriteFile(t, stalePath, "stale\n")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	mustWriteFile(t, overlayPath, "package cmd\n")
+	beforeTree := captureTree(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra"))
+
+	originalWriter := replaceVanillaWriter
+	replaceVanillaWriter = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(filepath.ToSlash(name), "/main.go.tmpl") {
+			return errors.New("boom")
+		}
+		return os.WriteFile(name, data, perm)
+	}
+	defer func() {
+		replaceVanillaWriter = originalWriter
+	}()
+
+	runner := newRepresentativeStackRunner(t)
+	var err error
+	withWorkingDir(t, repoRoot, func() {
+		err = Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{})
+	})
+
+	if err == nil {
+		t.Fatal("Run() error = nil, want staged replacement failure")
+	}
+	if !strings.Contains(err.Error(), "write staged path \"main.go.tmpl\"") {
+		t.Fatalf("Run() error = %q, want staged path failure", err)
+	}
+	if afterTree := captureTree(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra")); !reflect.DeepEqual(afterTree, beforeTree) {
+		t.Fatalf("go vanilla tree changed on staged replace failure\nbefore=%#v\nafter=%#v", beforeTree, afterTree)
+	}
+	if afterSources := mustReadFile(t, sourcesPath); afterSources != beforeSources {
+		t.Fatalf("sources.yaml changed on staged replace failure\nbefore=%s\nafter=%s", beforeSources, afterSources)
+	}
+	if got := mustReadFile(t, overlayPath); got != "package cmd\n" {
+		t.Fatalf("overlay changed to %q", got)
 	}
 }
 

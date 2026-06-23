@@ -71,7 +71,11 @@ type sentinelFile struct {
 	data []byte
 }
 
-var guidPattern = regexp.MustCompile(`(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`)
+var (
+	guidPattern           = regexp.MustCompile(`(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`)
+	replaceVanillaWriter  = os.WriteFile
+	replaceVanillaRenamer = os.Rename
+)
 
 func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, git GitRunner) error {
 	if strings.TrimSpace(stack) == "" {
@@ -103,6 +107,9 @@ func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, 
 	vars, err := representativeVariables(stack, row)
 	if err != nil {
 		return err
+	}
+	if vars.Language != "go" {
+		return fmt.Errorf("maintainer refresh currently supports Go stacks only; stack %s resolves to %s", stack, vars.Language)
 	}
 
 	workspaceRoot, err := os.MkdirTemp("", "mkproj-update-")
@@ -893,53 +900,114 @@ func currentDateStringAt(now time.Time) string {
 }
 
 func replaceVanillaLayer(committedStackDir string, refreshedVanilla string) error {
-	if err := os.MkdirAll(committedStackDir, 0o755); err != nil {
-		return fmt.Errorf("ensure committed stack dir: %w", err)
+	parentDir := filepath.Dir(committedStackDir)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return fmt.Errorf("ensure committed stack parent: %w", err)
 	}
 
-	entries, err := os.ReadDir(committedStackDir)
+	stagedDir, err := os.MkdirTemp(parentDir, ".mkproj-vanilla-*")
 	if err != nil {
-		return fmt.Errorf("read committed stack dir: %w", err)
+		return fmt.Errorf("create staged vanilla dir: %w", err)
 	}
-	for _, entry := range entries {
-		if entry.Name() == ".mkproj-overlay" {
-			continue
+	stagedActive := true
+	defer func() {
+		if stagedActive {
+			_ = os.RemoveAll(stagedDir)
 		}
-		if err := os.RemoveAll(filepath.Join(committedStackDir, entry.Name())); err != nil {
-			return fmt.Errorf("remove stale vanilla path %q: %w", entry.Name(), err)
-		}
+	}()
+
+	if err := copyTree(refreshedVanilla, stagedDir); err != nil {
+		return err
+	}
+	if err := copyOverlay(filepath.Join(committedStackDir, ".mkproj-overlay"), filepath.Join(stagedDir, ".mkproj-overlay")); err != nil {
+		return err
 	}
 
-	return filepath.WalkDir(refreshedVanilla, func(path string, d fs.DirEntry, walkErr error) error {
+	if _, err := os.Stat(committedStackDir); errors.Is(err, fs.ErrNotExist) {
+		if err := replaceVanillaRenamer(stagedDir, committedStackDir); err != nil {
+			return fmt.Errorf("activate staged vanilla dir: %w", err)
+		}
+		stagedActive = false
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("stat committed stack dir: %w", err)
+	}
+
+	backupDir := committedStackDir + ".mkproj-backup"
+	if err := os.RemoveAll(backupDir); err != nil {
+		return fmt.Errorf("clear vanilla backup dir: %w", err)
+	}
+	if err := replaceVanillaRenamer(committedStackDir, backupDir); err != nil {
+		return fmt.Errorf("stage committed stack dir: %w", err)
+	}
+	backupActive := true
+	defer func() {
+		if backupActive {
+			_ = os.RemoveAll(backupDir)
+		}
+	}()
+
+	if err := replaceVanillaRenamer(stagedDir, committedStackDir); err != nil {
+		if rollbackErr := replaceVanillaRenamer(backupDir, committedStackDir); rollbackErr != nil {
+			return fmt.Errorf("activate staged vanilla dir: %v (restore committed stack dir: %v)", err, rollbackErr)
+		}
+		backupActive = false
+		return fmt.Errorf("activate staged vanilla dir: %w", err)
+	}
+	stagedActive = false
+	if err := os.RemoveAll(backupDir); err != nil {
+		return fmt.Errorf("remove vanilla backup dir: %w", err)
+	}
+	backupActive = false
+	return nil
+}
+
+func copyTree(src string, dst string) error {
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return fmt.Errorf("prepare staged vanilla dir: %w", err)
+	}
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-
-		relPath, err := filepath.Rel(refreshedVanilla, path)
+		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
 		if relPath == "." {
 			return nil
 		}
-
-		targetPath := filepath.Join(committedStackDir, relPath)
+		targetPath := filepath.Join(dst, relPath)
 		if d.IsDir() {
-			return os.MkdirAll(targetPath, 0o755)
+			if err := os.MkdirAll(targetPath, 0o755); err != nil {
+				return fmt.Errorf("prepare staged dir %q: %w", relPath, err)
+			}
+			return nil
 		}
-
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read refreshed path %q: %w", relPath, err)
 		}
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return fmt.Errorf("prepare committed path %q: %w", relPath, err)
+			return fmt.Errorf("prepare staged path %q: %w", relPath, err)
 		}
-		if err := os.WriteFile(targetPath, data, 0o644); err != nil {
-			return fmt.Errorf("write committed path %q: %w", relPath, err)
+		if err := replaceVanillaWriter(targetPath, data, 0o644); err != nil {
+			return fmt.Errorf("write staged path %q: %w", relPath, err)
 		}
 		return nil
 	})
+}
+
+func copyOverlay(src string, dst string) error {
+	if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("stat overlay dir: %w", err)
+	}
+	if err := copyTree(src, dst); err != nil {
+		return fmt.Errorf("stage overlay dir: %w", err)
+	}
+	return nil
 }
 
 func renderedCatalogPath(path string) string {
