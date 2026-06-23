@@ -20,8 +20,11 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	tempDir := t.TempDir()
 	runner := &recordingRunner{}
 	writer := scaffold.Writer{Assets: fstest.MapFS{
-		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
-		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"),
+		},
 		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
 		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
@@ -63,6 +66,65 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force")
+}
+
+func TestInitializerRestoresScaffoldedManifestAfterForcedInstillInit(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		afterStep: func(dir string, step string, _ string, _ ...string) error {
+			if step != "instill init" {
+				return nil
+			}
+
+			return os.WriteFile(
+				filepath.Join(dir, ".claude", "skill-manifest.json"),
+				[]byte("{\"skills\":[\"productivity/mise\"]}\n"),
+				0o644,
+			)
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	manifestPath := filepath.Join(tempDir, ".claude", "skill-manifest.json")
+	wantManifest := "{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	gotManifest, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", manifestPath, err)
+	}
+	if string(gotManifest) != wantManifest {
+		t.Fatalf("manifest after Run() = %q, want %q", string(gotManifest), wantManifest)
+	}
 }
 
 func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
