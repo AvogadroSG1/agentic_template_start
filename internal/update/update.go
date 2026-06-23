@@ -184,7 +184,7 @@ func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, 
 		return err
 	}
 
-	sourcesPlan, err := planMutableSourcesRepin(filepath.Join(repoRoot, "sources.yaml"), stack, vanillaChanged)
+	sourcesPlan, err := planMutableSourcesRepin(filepath.Join(repoRoot, "sources.yaml"), stack, row.Resolved.Ref, vanillaChanged)
 	if err != nil {
 		return err
 	}
@@ -682,7 +682,7 @@ type sourcesRepinPlan struct {
 	mode     os.FileMode
 }
 
-func planMutableSourcesRepin(path string, stack string, vanillaChanged bool) (sourcesRepinPlan, error) {
+func planMutableSourcesRepin(path string, stack string, resolvedRef string, vanillaChanged bool) (sourcesRepinPlan, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return sourcesRepinPlan{}, fmt.Errorf("read mutable sources.yaml: %w", err)
@@ -700,7 +700,7 @@ func planMutableSourcesRepin(path string, stack string, vanillaChanged bool) (so
 		return plan, nil
 	}
 
-	updated, err := updateCapturedLine(data, stack, currentDateString())
+	updated, err := updateResolvedFields(data, stack, resolvedRef, currentDateString())
 	if err != nil {
 		return sourcesRepinPlan{}, err
 	}
@@ -735,7 +735,7 @@ func (p sourcesRepinPlan) rollback() error {
 	return nil
 }
 
-func updateCapturedLine(data []byte, stack string, captured string) ([]byte, error) {
+func updateResolvedFields(data []byte, stack string, resolvedRef string, captured string) ([]byte, error) {
 	lines := strings.SplitAfter(string(data), "\n")
 	stackIndex, err := findTopLevelKeyLine(lines, stack)
 	if err != nil {
@@ -746,17 +746,115 @@ func updateCapturedLine(data []byte, stack string, captured string) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
+	resolvedLine := lines[resolvedIndex]
+	resolvedTrimmed := trimLine(resolvedLine)
+	if strings.Contains(resolvedTrimmed, "{") && strings.Contains(resolvedTrimmed, "}") {
+		updatedLine, err := rewriteFlowResolvedLine(resolvedLine, resolvedRef, captured)
+		if err != nil {
+			return nil, err
+		}
+		lines[resolvedIndex] = updatedLine
+		return []byte(strings.Join(lines, "")), nil
+	}
+
 	resolvedEnd := findBlockEnd(lines, resolvedIndex+1, resolvedIndent)
+	refIndex, _, err := findChildKeyLine(lines, resolvedIndex+1, resolvedEnd, resolvedIndent, "ref")
+	if err != nil {
+		return nil, err
+	}
 	capturedIndex, _, err := findChildKeyLine(lines, resolvedIndex+1, resolvedEnd, resolvedIndent, "captured")
 	if err != nil {
 		return nil, err
 	}
-	updatedLine, err := rewriteScalarLine(lines[capturedIndex], "captured", captured)
+	updatedRefLine, err := rewriteScalarLine(lines[refIndex], "ref", resolvedRef)
 	if err != nil {
 		return nil, err
 	}
-	lines[capturedIndex] = updatedLine
+	updatedCapturedLine, err := rewriteScalarLine(lines[capturedIndex], "captured", captured)
+	if err != nil {
+		return nil, err
+	}
+	lines[refIndex] = updatedRefLine
+	lines[capturedIndex] = updatedCapturedLine
 	return []byte(strings.Join(lines, "")), nil
+}
+
+func rewriteFlowResolvedLine(line string, resolvedRef string, captured string) (string, error) {
+	body, newline := splitLineEnding(line)
+	trimmedLeft := strings.TrimLeft(body, " \t")
+	if !strings.HasPrefix(trimmedLeft, "resolved:") {
+		return "", fmt.Errorf("line %q does not contain key %q", line, "resolved")
+	}
+	prefixEnd := len(body) - len(trimmedLeft) + len("resolved:")
+	for prefixEnd < len(body) && (body[prefixEnd] == ' ' || body[prefixEnd] == '\t') {
+		prefixEnd++
+	}
+	prefix := body[:prefixEnd]
+	rest := body[prefixEnd:]
+	openIndex := strings.Index(rest, "{")
+	closeIndex := strings.LastIndex(rest, "}")
+	if openIndex < 0 || closeIndex < openIndex {
+		return "", fmt.Errorf("resolved flow mapping missing braces")
+	}
+	before := rest[:openIndex+1]
+	content := rest[openIndex+1 : closeIndex]
+	after := rest[closeIndex:]
+	updatedContent, err := rewriteFlowResolvedContent(content, resolvedRef, captured)
+	if err != nil {
+		return "", err
+	}
+	return prefix + before + updatedContent + after + newline, nil
+}
+
+func rewriteFlowResolvedContent(content string, resolvedRef string, captured string) (string, error) {
+	parts := strings.Split(content, ",")
+	foundRef := false
+	foundCaptured := false
+	for index, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		colonIndex := strings.Index(trimmed, ":")
+		if colonIndex < 0 {
+			return "", fmt.Errorf("resolved flow field %q is missing ':'", trimmed)
+		}
+		key := strings.TrimSpace(trimmed[:colonIndex])
+		switch key {
+		case "ref":
+			parts[index] = rewriteFlowField(part, resolvedRef)
+			foundRef = true
+		case "captured":
+			parts[index] = rewriteFlowField(part, captured)
+			foundCaptured = true
+		}
+	}
+	if !foundRef {
+		return "", fmt.Errorf("ref missing from mutable sources.yaml stack row")
+	}
+	if !foundCaptured {
+		return "", fmt.Errorf("captured missing from mutable sources.yaml stack row")
+	}
+	return strings.Join(parts, ","), nil
+}
+
+func rewriteFlowField(field string, value string) string {
+	leadingLen := len(field) - len(strings.TrimLeft(field, " \t"))
+	trailingLen := len(field) - len(strings.TrimRight(field, " \t"))
+	leading := field[:leadingLen]
+	trailing := field[len(field)-trailingLen:]
+	trimmed := strings.TrimSpace(field)
+	colonIndex := strings.Index(trimmed, ":")
+	prefix := trimmed[:colonIndex+1]
+	valuePart := trimmed[colonIndex+1:]
+	spacingLen := len(valuePart) - len(strings.TrimLeft(valuePart, " \t"))
+	spacing := valuePart[:spacingLen]
+	valueToken := strings.TrimSpace(valuePart)
+	if valueToken != "" && (valueToken[0] == '\'' || valueToken[0] == '"') && valueToken[len(valueToken)-1] == valueToken[0] {
+		quote := string(valueToken[0])
+		return leading + prefix + spacing + quote + value + quote + trailing
+	}
+	return leading + prefix + spacing + value + trailing
 }
 
 func findTopLevelKeyLine(lines []string, key string) (int, error) {

@@ -242,3 +242,51 @@ ok   mkproj/internal/scaffold	1.722s
 ok   mkproj/internal/update	2.045s
 ok   mkproj/test	13.439s
 ```
+
+## Final Repin Fix Wave
+- Expanded mutable repo-root `sources.yaml` repin so changed refreshes now rewrite both `resolved.ref` and `resolved.captured` from the embedded row plus current run contract.
+- Taught the text-preserving repin path to handle both supported `resolved` schema shapes: block style and inline flow style.
+- Kept the unchanged-refresh guard intact, so the existing no-op byte-stability proof still holds.
+
+### Final Repin RED
+Command:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+```
+Relevant failing output before the fix:
+```text
+--- FAIL: TestRunRepinsInlineFlowResolvedRowWhenRepresentativeRefreshChanges (0.06s)
+    update_test.go:549: Run() error = captured missing from mutable sources.yaml stack row
+--- FAIL: TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges (0.07s)
+    update_test.go:515: sources.yaml = "... ref: \"stale-ref\" ...", want refreshed ref
+FAIL
+FAIL	mkproj/internal/update	0.781s
+FAIL
+```
+Why expected:
+- The first failure proved inline flow-style `resolved` rows still went through the block-style parser.
+- The second failure proved changed refreshes only rewrote `captured`, leaving a stale mutable `resolved.ref` behind.
+
+### Final Repin Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update	0.731s
+ok   mkproj/internal/update	0.432s
+ok   mkproj/cmd/mkproj	11.239s
+ok   mkproj/cmd/mkproj	10.893s
+ok   mkproj/internal/allowlist	1.135s
+ok   mkproj/internal/catalog	0.987s
+ok   mkproj/internal/init	4.341s
+ok   mkproj/internal/project	1.804s
+ok   mkproj/internal/prompt	2.089s
+ok   mkproj/internal/remote	1.266s
+ok   mkproj/internal/scaffold	0.647s
+ok   mkproj/internal/update	2.251s
+ok   mkproj/test	13.312s
+```

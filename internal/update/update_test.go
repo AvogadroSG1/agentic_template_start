@@ -485,7 +485,21 @@ func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 
 	assets := representativeStackAssets()
 	repoRoot := t.TempDir()
-	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "stale-ref"
+    captured: "2000-01-01"
+`)
 	seedRepresentativeTemplateContract(t, repoRoot)
 	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt"), "stale\n")
 
@@ -497,14 +511,54 @@ func TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges(t *testing.T) {
 	})
 
 	sources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
-	if strings.Contains(sources, "captured: \"2026-06-20\"") {
+	if !strings.Contains(sources, "ref: \"v1.3.0\"") {
+		t.Fatalf("sources.yaml = %q, want refreshed ref", sources)
+	}
+	if strings.Contains(sources, "ref: \"stale-ref\"") {
+		t.Fatalf("sources.yaml = %q, want stale ref removed", sources)
+	}
+	if strings.Contains(sources, "captured: \"2000-01-01\"") {
 		t.Fatalf("sources.yaml = %q, want updated captured date", sources)
 	}
-	if !strings.Contains(sources, "captured: \"") {
-		t.Fatalf("sources.yaml = %q, want captured field", sources)
+}
+
+func TestRunRepinsInlineFlowResolvedRowWhenRepresentativeRefreshChanges(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), `go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved: { ref: "stale-ref", captured: "2000-01-01" }
+`)
+	seedRepresentativeTemplateContract(t, repoRoot)
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt"), "stale\n")
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	sources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if !strings.Contains(sources, `resolved: { ref: "v1.3.0", captured: "`) {
+		t.Fatalf("sources.yaml = %q, want inline flow-style repin", sources)
 	}
-	if !strings.Contains(sources, "ref:") || !strings.Contains(sources, "v1.3.0") {
-		t.Fatalf("sources.yaml = %q, want pinned ref", sources)
+	if strings.Contains(sources, `resolved:\n`) || strings.Contains(sources, `resolved:\r\n`) {
+		t.Fatalf("sources.yaml = %q, want flow-style resolved preserved", sources)
+	}
+	if strings.Contains(sources, "stale-ref") || strings.Contains(sources, "2000-01-01") {
+		t.Fatalf("sources.yaml = %q, want stale inline resolved values removed", sources)
 	}
 }
 
