@@ -61,6 +61,8 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	if got := runner.stepNames(); !equalStrings(got, want) {
 		t.Fatalf("step order = %#v, want %#v", got, want)
 	}
+
+	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force")
 }
 
 func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {

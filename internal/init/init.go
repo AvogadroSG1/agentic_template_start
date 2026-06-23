@@ -46,7 +46,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		args    []string
 	}{
 		{name: "bd init", command: "bd", args: []string{"init"}},
-		{name: "instill init", command: "instill", args: []string{"init"}},
+		{name: "instill init", command: "instill", args: []string{"init", "--force"}},
 		{name: "instill pick-skills", command: "instill", args: []string{"pick-skills"}},
 		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
 		{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}},
