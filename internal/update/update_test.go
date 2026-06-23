@@ -562,6 +562,48 @@ func TestRunRepinsInlineFlowResolvedRowWhenRepresentativeRefreshChanges(t *testi
 	}
 }
 
+func TestRunRepinsMutableRefWhenVanillaSnapshotIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	assets := representativeStackAssets()
+	repoRoot := t.TempDir()
+	beforeSources := `go-cli-cobra:
+  kind: scaffolder
+  steps:
+    - run: "cobra-cli init --pkg-name {{.ModulePath}}"
+    - run: "cobra-cli add serve"
+    - run: "cobra-cli add config"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "stale-ref"
+    captured: "2000-01-01"
+`
+	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), beforeSources)
+	seedRepresentativeNoOpVanilla(t, repoRoot)
+
+	runner := newRepresentativeStackRunner(t)
+	withWorkingDir(t, repoRoot, func() {
+		if err := Run(context.Background(), assets, "go-cli-cobra", runner, &recordingGitRunner{}); err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	})
+
+	afterSources := mustReadFile(t, filepath.Join(repoRoot, "sources.yaml"))
+	if !strings.Contains(afterSources, `ref: "v1.3.0"`) {
+		t.Fatalf("sources.yaml = %q, want embedded resolved.ref", afterSources)
+	}
+	if strings.Contains(afterSources, `ref: "stale-ref"`) {
+		t.Fatalf("sources.yaml = %q, want stale ref removed", afterSources)
+	}
+	if !strings.Contains(afterSources, `captured: "2000-01-01"`) {
+		t.Fatalf("sources.yaml = %q, want captured preserved on unchanged vanilla", afterSources)
+	}
+}
+
 func TestRunIsIdempotentWhenRepresentativeStackIsUnchanged(t *testing.T) {
 	t.Parallel()
 

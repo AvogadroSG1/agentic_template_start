@@ -696,11 +696,13 @@ func planMutableSourcesRepin(path string, stack string, resolvedRef string, vani
 		original: append([]byte(nil), data...),
 		mode:     info.Mode().Perm(),
 	}
-	if !vanillaChanged {
-		return plan, nil
-	}
 
-	updated, err := updateResolvedFields(data, stack, resolvedRef, currentDateString())
+	var captured *string
+	if vanillaChanged {
+		value := currentDateString()
+		captured = &value
+	}
+	updated, err := updateResolvedFields(data, stack, resolvedRef, captured)
 	if err != nil {
 		return sourcesRepinPlan{}, err
 	}
@@ -735,7 +737,7 @@ func (p sourcesRepinPlan) rollback() error {
 	return nil
 }
 
-func updateResolvedFields(data []byte, stack string, resolvedRef string, captured string) ([]byte, error) {
+func updateResolvedFields(data []byte, stack string, resolvedRef string, captured *string) ([]byte, error) {
 	lines := strings.SplitAfter(string(data), "\n")
 	stackIndex, err := findTopLevelKeyLine(lines, stack)
 	if err != nil {
@@ -762,24 +764,26 @@ func updateResolvedFields(data []byte, stack string, resolvedRef string, capture
 	if err != nil {
 		return nil, err
 	}
-	capturedIndex, _, err := findChildKeyLine(lines, resolvedIndex+1, resolvedEnd, resolvedIndent, "captured")
-	if err != nil {
-		return nil, err
-	}
 	updatedRefLine, err := rewriteScalarLine(lines[refIndex], "ref", resolvedRef)
 	if err != nil {
 		return nil, err
 	}
-	updatedCapturedLine, err := rewriteScalarLine(lines[capturedIndex], "captured", captured)
-	if err != nil {
-		return nil, err
-	}
 	lines[refIndex] = updatedRefLine
-	lines[capturedIndex] = updatedCapturedLine
+	if captured != nil {
+		capturedIndex, _, err := findChildKeyLine(lines, resolvedIndex+1, resolvedEnd, resolvedIndent, "captured")
+		if err != nil {
+			return nil, err
+		}
+		updatedCapturedLine, err := rewriteScalarLine(lines[capturedIndex], "captured", *captured)
+		if err != nil {
+			return nil, err
+		}
+		lines[capturedIndex] = updatedCapturedLine
+	}
 	return []byte(strings.Join(lines, "")), nil
 }
 
-func rewriteFlowResolvedLine(line string, resolvedRef string, captured string) (string, error) {
+func rewriteFlowResolvedLine(line string, resolvedRef string, captured *string) (string, error) {
 	body, newline := splitLineEnding(line)
 	trimmedLeft := strings.TrimLeft(body, " \t")
 	if !strings.HasPrefix(trimmedLeft, "resolved:") {
@@ -806,7 +810,7 @@ func rewriteFlowResolvedLine(line string, resolvedRef string, captured string) (
 	return prefix + before + updatedContent + after + newline, nil
 }
 
-func rewriteFlowResolvedContent(content string, resolvedRef string, captured string) (string, error) {
+func rewriteFlowResolvedContent(content string, resolvedRef string, captured *string) (string, error) {
 	parts := strings.Split(content, ",")
 	foundRef := false
 	foundCaptured := false
@@ -825,14 +829,16 @@ func rewriteFlowResolvedContent(content string, resolvedRef string, captured str
 			parts[index] = rewriteFlowField(part, resolvedRef)
 			foundRef = true
 		case "captured":
-			parts[index] = rewriteFlowField(part, captured)
 			foundCaptured = true
+			if captured != nil {
+				parts[index] = rewriteFlowField(part, *captured)
+			}
 		}
 	}
 	if !foundRef {
 		return "", fmt.Errorf("ref missing from mutable sources.yaml stack row")
 	}
-	if !foundCaptured {
+	if captured != nil && !foundCaptured {
 		return "", fmt.Errorf("captured missing from mutable sources.yaml stack row")
 	}
 	return strings.Join(parts, ","), nil

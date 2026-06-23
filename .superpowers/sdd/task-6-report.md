@@ -290,3 +290,51 @@ ok   mkproj/internal/scaffold	0.647s
 ok   mkproj/internal/update	2.251s
 ok   mkproj/test	13.312s
 ```
+
+## Final Ref-Gating Fix Wave
+- Corrected mutable repo-root repin behavior so `resolved.ref` now always reconciles to the embedded row value, even when the refreshed vanilla snapshot is byte-identical.
+- Preserved last-changed semantics for `resolved.captured`: it still updates only when the vanilla snapshot actually changes.
+- Extended the text-preserving updater so both block-style and inline flow-style `resolved` rows follow that split contract.
+
+### Final Ref-Gating RED
+Command:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+```
+Relevant failing output before the fix:
+```text
+--- FAIL: TestRunRepinsInlineFlowResolvedRowWhenRepresentativeRefreshChanges (0.06s)
+    update_test.go:549: Run() error = captured missing from mutable sources.yaml stack row
+--- FAIL: TestRunRepinsMutableSourcesWhenRepresentativeRefreshChanges (0.07s)
+    update_test.go:515: sources.yaml = "... ref: \"stale-ref\" ...", want refreshed ref
+FAIL
+FAIL	mkproj/internal/update	0.781s
+FAIL
+```
+Why expected:
+- The repin planner still skipped work entirely when `vanillaChanged` was false, which left a stale mutable `resolved.ref` in place.
+- The inline flow-style case still assumed the captured field must be rewritten through the block-path logic instead of supporting the split ref/captured contract.
+
+### Final Ref-Gating Verification
+Commands:
+```bash
+GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
+GOCACHE=$PWD/.cache/go-build go test ./internal/update ./cmd/mkproj -count=1
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+```
+Results:
+```text
+ok   mkproj/internal/update	0.654s
+ok   mkproj/internal/update	0.386s
+ok   mkproj/cmd/mkproj	8.299s
+ok   mkproj/cmd/mkproj	8.186s
+ok   mkproj/internal/allowlist	2.052s
+ok   mkproj/internal/catalog	1.893s
+ok   mkproj/internal/init	4.120s
+ok   mkproj/internal/project	1.026s
+ok   mkproj/internal/prompt	1.413s
+ok   mkproj/internal/remote	1.759s
+ok   mkproj/internal/scaffold	0.889s
+ok   mkproj/internal/update	1.771s
+ok   mkproj/test	12.425s
+```
