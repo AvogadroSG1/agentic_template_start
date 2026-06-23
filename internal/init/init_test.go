@@ -3,6 +3,9 @@ package initcmd
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -94,9 +97,145 @@ func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
 	}
 }
 
+func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		afterStep: func(dir string, step string, _ string, _ ...string) error {
+			switch step {
+			case "bd init":
+				return seedBeadsHooks(dir)
+			case "lefthook install":
+				return simulateForcedLefthookInstall(dir)
+			default:
+				return nil
+			}
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	err := init.Run(context.Background(), tempDir, project.Variables{
+		ProjectName: "Sample App",
+		Language:    "go",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "lefthook install", "install", "--force")
+
+	checks := []struct {
+		hook      string
+		wantLines []string
+	}{
+		{hook: "pre-commit", wantLines: []string{"beads pre-commit", "lefthook pre-commit"}},
+		{hook: "pre-push", wantLines: []string{"beads pre-push", "lefthook pre-push"}},
+	}
+
+	for _, check := range checks {
+		check := check
+		t.Run(check.hook, func(t *testing.T) {
+			hookPath := filepath.Join(tempDir, ".beads", "hooks", check.hook)
+			if _, err := os.Stat(hookPath + ".old"); err != nil {
+				t.Fatalf("Stat(%s.old) error = %v", hookPath, err)
+			}
+			if _, err := os.Stat(hookPath + ".lefthook"); err != nil {
+				t.Fatalf("Stat(%s.lefthook) error = %v", hookPath, err)
+			}
+
+			output := runHook(t, hookPath)
+			for _, want := range check.wantLines {
+				if !strings.Contains(output, want) {
+					t.Fatalf("%s output = %q, want %q", hookPath, output, want)
+				}
+			}
+			if strings.Index(output, check.wantLines[0]) > strings.Index(output, check.wantLines[1]) {
+				t.Fatalf("%s output order = %q, want beads hook before lefthook", hookPath, output)
+			}
+		})
+	}
+}
+
+func seedBeadsHooks(dir string) error {
+	hooksDir := filepath.Join(dir, ".beads", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		return err
+	}
+
+	for _, hook := range []string{"pre-commit", "pre-push"} {
+		content := "#!/usr/bin/env bash\nset -euo pipefail\necho \"beads " + hook + "\"\n"
+		if err := os.WriteFile(filepath.Join(hooksDir, hook), []byte(content), 0o755); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func simulateForcedLefthookInstall(dir string) error {
+	hooksDir := filepath.Join(dir, ".beads", "hooks")
+	for _, hook := range []string{"pre-commit", "pre-push"} {
+		hookPath := filepath.Join(hooksDir, hook)
+		if err := os.Rename(hookPath, hookPath+".old"); err != nil {
+			return err
+		}
+
+		content := "#!/usr/bin/env bash\nset -euo pipefail\necho \"lefthook " + hook + "\"\n"
+		if err := os.WriteFile(hookPath, []byte(content), 0o755); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func runHook(t *testing.T, hookPath string) string {
+	t.Helper()
+
+	cmd := exec.Command(hookPath)
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Run(%s) error = %v\n%s", hookPath, err, output.String())
+	}
+
+	return output.String()
+}
+
+func assertRecordedStepArgs(t *testing.T, steps []recordedStep, name string, wantArgs ...string) {
+	t.Helper()
+
+	for _, step := range steps {
+		if step.name != name {
+			continue
+		}
+		if !equalStrings(step.args, wantArgs) {
+			t.Fatalf("%s args = %#v, want %#v", name, step.args, wantArgs)
+		}
+		return
+	}
+
+	t.Fatalf("%s step not recorded", name)
+}
+
 type recordingRunner struct {
-	failStep string
-	steps    []recordedStep
+	failStep  string
+	steps     []recordedStep
+	afterStep func(dir string, step string, command string, args ...string) error
 }
 
 type recordedStep struct {
@@ -105,10 +244,13 @@ type recordedStep struct {
 	args    []string
 }
 
-func (r *recordingRunner) Run(_ context.Context, _ string, step string, command string, args ...string) error {
+func (r *recordingRunner) Run(_ context.Context, dir string, step string, command string, args ...string) error {
 	r.steps = append(r.steps, recordedStep{name: step, command: command, args: args})
 	if step == r.failStep {
 		return errors.New("boom")
+	}
+	if r.afterStep != nil {
+		return r.afterStep(dir, step, command, args...)
 	}
 
 	return nil
