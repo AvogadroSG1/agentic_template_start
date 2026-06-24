@@ -17,6 +17,7 @@ This file is the project-specific guide for working on the `mkproj` generator it
 - This repo exists to make `mkproj init` produce a complete working repository with no manual follow-up.
 - The generator MUST preserve the core product invariants: empty-directory init, generated repos that work without `mkproj` installed, a deny-only guard, and one shared gate pipeline used locally and in CI.
 - Root `AGENTS.md` is for contributors working on the generator. Generated repositories get their own instructions from `templates/common/AGENTS.md.tmpl`.
+- Contributors MUST keep generator behavior, shipped templates, and contributor-facing docs aligned so downstream repos do not drift from the documented workflow.
 
 ## HOW
 
@@ -24,6 +25,13 @@ This file is the project-specific guide for working on the `mkproj` generator it
 - If work is not already tracked, create a Beads issue before editing files.
 - Keep shell commands non-interactive: prefer `cp -f`, `mv -f`, `rm -f`, and other batch-safe forms.
 - Use the README for the full contributor workflow and command catalog: [`README.md`](./README.md).
+
+### Read First
+
+- Read `docs/SPEC.md` before changing behavior.
+- Read `docs/PRD.md` when validating user value or scope.
+- Read `docs/adr/` before changing a protected invariant or established approach.
+- Read `CONTEXT.md` when a term or boundary is ambiguous.
 
 ### Common Commands
 
@@ -41,6 +49,19 @@ go build ./cmd/mkproj
 - Edit `templates/common/AGENTS.md.tmpl` when changing what scaffolded repos should tell agents.
 - Edit `templates/common/` for shared generated assets.
 - Edit `templates/golden/` and `sources.yaml` together when changing shipped stack behavior or maintainer refresh inputs.
+
+### Change Placement
+
+- Put generator logic in `internal/` packages, not templates.
+- Put generated-repo defaults in `templates/common/` unless they are stack-specific.
+- Put stack-specific output in `templates/golden/<stack>/`.
+- Put maintainer refresh intent in `sources.yaml` and keep overlays deterministic.
+
+### Verification Expectations
+
+- Prefer behavior-first changes: update the nearest test before or alongside code.
+- When scaffold output changes, verify both focused package tests and the full suite.
+- Treat documentation as part of the feature when commands, workflow, or invariants change.
 
 ### Session Completion
 
