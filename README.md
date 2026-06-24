@@ -55,19 +55,51 @@ To run `mkproj init` end to end, you also need:
 - optional remote publishing:
   - `gh` for `--remote gh`
 
-### Build The CLI
+### Install The CLI
+
+For the normal local developer install path:
 
 ```bash
-go build ./cmd/mkproj
+make install
 ```
 
-For one-off runs during development:
+Override the destination directory when you do not want to write to `$HOME/.local/bin`:
+
+```bash
+make install BINDIR=/custom/bin
+```
+
+### Build The CLI
+
+For a repo-local binary without installing it:
+
+```bash
+make build
+```
+
+Run the full verification suite through the same command surface:
+
+```bash
+make test
+```
+
+Remove the repo-local build output:
+
+```bash
+make clean
+```
+
+Remove the installed binary from the selected install directory:
+
+```bash
+make uninstall
+```
+
+For one-off runs during development without writing `bin/mkproj`:
 
 ```bash
 go run ./cmd/mkproj
 ```
-
-Bare invocation defaults to `init`.
 
 ### Quickstart
 
@@ -213,6 +245,9 @@ If work is not already tracked, create an issue before editing.
 Full verification:
 
 ```bash
+make build
+make test
+make clean
 GOCACHE=$PWD/.cache/go-build go test ./... -count=1
 ```
 

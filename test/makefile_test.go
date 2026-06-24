@@ -181,6 +181,30 @@ func TestGitIgnoreIgnoresBinDirectory(t *testing.T) {
 	}
 }
 
+func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := repoRoot(t)
+	data, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(README.md) error = %v", err)
+	}
+
+	text := string(data)
+	for _, snippet := range []string{
+		"make install",
+		"make install BINDIR=/custom/bin",
+		"make build",
+		"make test",
+		"make clean",
+		"make uninstall",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("README.md missing %q\n%s", snippet, text)
+		}
+	}
+}
+
 func runMake(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 
