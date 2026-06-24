@@ -36,14 +36,26 @@ func Sync(path string, block string, checkOnly bool) (Status, error) {
 		return status, nil
 	}
 
-	start := strings.Index(string(data), beginMarker)
-	end := strings.Index(string(data), endMarker)
-	if start == -1 || end == -1 || end < start {
+	text := string(data)
+	startIdx := strings.Index(text, beginMarker)
+	endIdx := strings.Index(text, endMarker)
+	if startIdx == -1 || endIdx == -1 || endIdx < startIdx {
 		return Status{}, fmt.Errorf("managed block markers not found in %s", path)
 	}
 
-	replacement := fmt.Sprintf("%s%d\n%s\n%s", beginMarker, Version, block, endMarker)
-	updated := string(data[:start]) + replacement + string(data[end+len(endMarker):])
+	lineStart := strings.LastIndex(text[:startIdx], "\n") + 1
+	afterEnd := endIdx + len(endMarker)
+	lineEnd := afterEnd
+	for lineEnd < len(text) && text[lineEnd] != '\n' {
+		lineEnd++
+	}
+
+	indent := strings.Repeat(" ", startIdx-lineStart)
+	beginLine := fmt.Sprintf(`%s"%s%d",`, indent, beginMarker, Version)
+	endLine := fmt.Sprintf(`%s"%s",`, indent, endMarker)
+	replacement := beginLine + "\n" + block + "\n" + endLine
+
+	updated := text[:lineStart] + replacement + text[lineEnd:]
 
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		return Status{}, err

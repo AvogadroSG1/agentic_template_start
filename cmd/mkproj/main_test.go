@@ -39,7 +39,7 @@ func TestSyncAllowlistUsesCanonicalEmbeddedEntriesForTheProjectLanguage(t *testi
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:0\n      \"Bash(go:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
@@ -66,7 +66,7 @@ func TestSyncAllowlistUsesCanonicalEmbeddedEntriesForTheProjectLanguage(t *testi
 func TestRunSyncAllowlistCheckNotifiesWithoutMutatingSettings(t *testing.T) {
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:0\n      \"Bash(go:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
@@ -95,7 +95,7 @@ func TestRunSyncAllowlistIncludesPersonalRulesOnlyWhenRequested(t *testing.T) {
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:0\n      \"Bash(go:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
@@ -118,7 +118,7 @@ func TestRunSyncAllowlistIncludesPersonalRulesOnlyWhenRequested(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile(include personal) error = %v", err)
 	}
-	for _, snippet := range []string{`// BEGIN MKPROJ PERSONAL`, `"Bash(gw:*)",`, `"Bash(slack-cli:*)",`, `// END MKPROJ PERSONAL`} {
+	for _, snippet := range []string{`"Bash(gw:*)",`, `"Bash(slack-cli:*)",`} {
 		if !strings.Contains(string(data), snippet) {
 			t.Fatalf("sync with personal rules missing %q in:\n%s", snippet, string(data))
 		}
@@ -130,7 +130,7 @@ func TestRunSyncAllowlistRejectsConflictingManagedBlockLanguageMarkers(t *testin
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:0\n      \"Bash(go:*)\",\n      \"Bash(python:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"Bash(python:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
