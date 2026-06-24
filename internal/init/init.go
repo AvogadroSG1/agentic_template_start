@@ -54,6 +54,8 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		{name: "bd init", command: "bd", args: []string{"init"}},
 		{name: "instill init", command: "instill", args: []string{"init", "--force", "--skills", strings.Join(skills, ",")}},
 		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
+		{name: "mise trust", command: "mise", args: []string{"trust"}},
+		{name: "mise install", command: "mise", args: []string{"install"}},
 		{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}},
 	}
 
