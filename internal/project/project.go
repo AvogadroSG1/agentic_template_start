@@ -43,6 +43,7 @@ type Variables struct {
 	GoModule        string
 	PythonPackage   string
 	CSharpNamespace string
+	IncludePersonal bool
 }
 
 var nonAlphaNumeric = regexp.MustCompile(`[^a-z0-9]+`)
@@ -98,6 +99,7 @@ func ResolveVariables(input Input) (Variables, error) {
 		GoModule:        modulePath,
 		PythonPackage:   strings.Join(slugWords, "_"),
 		CSharpNamespace: pascalCase(slugWords),
+		IncludePersonal: false,
 	}, nil
 }
 

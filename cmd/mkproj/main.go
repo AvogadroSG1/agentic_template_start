@@ -112,8 +112,10 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 	flags := flag.NewFlagSet("mkproj sync-allowlist", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	var checkOnly bool
+	var includePersonal bool
 	var settingsPath string
 	flags.BoolVar(&checkOnly, "check", false, "Only report staleness")
+	flags.BoolVar(&includePersonal, "include-personal", false, "Include personal allowlist rules")
 	flags.StringVar(&settingsPath, "path", filepath.Join(cwd, ".claude", "settings.local.json"), "settings.local.json path")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -127,7 +129,7 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 	if err != nil {
 		return err
 	}
-	block, err := allowlist.CanonicalBlock(assets, language)
+	block, err := allowlist.CanonicalBlock(assets, language, includePersonal)
 	if err != nil {
 		return err
 	}

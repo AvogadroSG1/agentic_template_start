@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"mkproj"
 )
 
 func TestDetectReportsStaleManagedBlocks(t *testing.T) {
@@ -56,5 +58,58 @@ func TestSyncRewritesOnlyTheManagedBlock(t *testing.T) {
 	}
 	if !strings.Contains(text, "new rules") {
 		t.Fatalf("Sync() missing replacement block:\n%s", text)
+	}
+}
+
+func TestInferLanguageUsesOnlyTheManagedBlock(t *testing.T) {
+	t.Parallel()
+
+	contents := "{\n  \"note\": \"Bash(python:*) belongs in docs only\",\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:1\n      \"Bash(go:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+
+	language, err := InferLanguage(contents)
+	if err != nil {
+		t.Fatalf("InferLanguage() error = %v", err)
+	}
+	if language != "go" {
+		t.Fatalf("InferLanguage() = %q, want go", language)
+	}
+}
+
+func TestInferLanguageRejectsMissingManagedBlockLanguageMarkers(t *testing.T) {
+	t.Parallel()
+
+	contents := "{\n  \"permissions\": {\n    \"allow\": [\n      // BEGIN MKPROJ ALLOW v:1\n      \"Bash(git status:*)\",\n      // END MKPROJ ALLOW\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+
+	_, err := InferLanguage(contents)
+	if err == nil || !strings.Contains(err.Error(), "could not infer project language") {
+		t.Fatalf("InferLanguage() error = %v, want missing language marker", err)
+	}
+}
+
+func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
+	t.Parallel()
+
+	defaultBlock, err := CanonicalBlock(mkproj.Assets(), "go", false)
+	if err != nil {
+		t.Fatalf("CanonicalBlock(default) error = %v", err)
+	}
+	if strings.Contains(defaultBlock, `"Bash(gw:*)"`) {
+		t.Fatalf("CanonicalBlock(default) unexpectedly included personal rules:\n%s", defaultBlock)
+	}
+
+	personalBlock, err := CanonicalBlock(mkproj.Assets(), "go", true)
+	if err != nil {
+		t.Fatalf("CanonicalBlock(include personal) error = %v", err)
+	}
+	for _, snippet := range []string{
+		`// BEGIN MKPROJ PERSONAL`,
+		`"Bash(gw:*)",`,
+		`"Bash(slack-cli:*)",`,
+		`"Bash(docker images:*)",`,
+		`// END MKPROJ PERSONAL`,
+	} {
+		if !strings.Contains(personalBlock, snippet) {
+			t.Fatalf("CanonicalBlock(include personal) missing %q in:\n%s", snippet, personalBlock)
+		}
 	}
 }
