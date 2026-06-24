@@ -37,6 +37,9 @@ func TestWalkingSkeletonGoCLIInitRunsThroughMiseCI(t *testing.T) {
 	writeExecutable(t, filepath.Join(stubDir, "mise"), `#!/usr/bin/env bash
 set -euo pipefail
 case "${1:-}" in
+  trust)
+    exit 0
+    ;;
   install)
     exit 0
     ;;
