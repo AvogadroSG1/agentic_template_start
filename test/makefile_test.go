@@ -192,6 +192,7 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 
 	text := string(data)
 	for _, snippet := range []string{
+		"make help",
 		"make install",
 		"make install BINDIR=/custom/bin",
 		"make build",
@@ -201,6 +202,15 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("README.md missing %q\n%s", snippet, text)
+		}
+	}
+
+	for _, snippet := range []string{
+		"go build ./cmd/mkproj",
+		"go build -o $(BIN_PATH) ./cmd/mkproj",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("README.md still contains stale guidance %q\n%s", snippet, text)
 		}
 	}
 }

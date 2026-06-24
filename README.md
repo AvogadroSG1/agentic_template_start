@@ -69,6 +69,13 @@ Override the destination directory when you do not want to write to `$HOME/.loca
 make install BINDIR=/custom/bin
 ```
 
+The default `make` target is `help`, so bare `make` shows the available targets:
+
+```bash
+make
+make help
+```
+
 ### Build The CLI
 
 For a repo-local binary without installing it:
@@ -242,7 +249,7 @@ If work is not already tracked, create an issue before editing.
 
 ### Common Development Commands
 
-Full verification:
+Workflow commands:
 
 ```bash
 make build
