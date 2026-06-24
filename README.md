@@ -84,7 +84,7 @@ For a repo-local binary without installing it:
 make build
 ```
 
-Run the full verification suite through the same command surface:
+Run the test target through the same command surface:
 
 ```bash
 make test

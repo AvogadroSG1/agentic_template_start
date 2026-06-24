@@ -192,7 +192,7 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 
 	text := string(data)
 	for _, snippet := range []string{
-		"make help",
+		"bare `make` shows the available targets",
 		"make install",
 		"make install BINDIR=/custom/bin",
 		"make build",
