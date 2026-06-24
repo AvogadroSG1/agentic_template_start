@@ -100,6 +100,7 @@ Remove the installed binary from the selected install directory:
 
 ```bash
 make uninstall
+make uninstall BINDIR=/custom/bin
 ```
 
 For one-off runs during development without writing `bin/mkproj`:

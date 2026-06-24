@@ -29,6 +29,8 @@ func TestMakefileDefinesCoreTargets(t *testing.T) {
 		".PHONY: help build test install uninstall clean",
 		"help: ## Show available targets",
 		"build: ## Build the mkproj binary into bin/",
+		"\t@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf",
+		"\t@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \\",
 		"\tgo build -o $(BIN_PATH) ./cmd/mkproj",
 		"test: ## Run the full Go test suite",
 		"\tGOCACHE=$(PWD)/.cache/go-build go test ./... -count=1",
@@ -192,13 +194,14 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 
 	text := string(data)
 	for _, snippet := range []string{
-		"bare `make` shows the available targets",
+		"make help",
 		"make install",
 		"make install BINDIR=/custom/bin",
 		"make build",
 		"make test",
 		"make clean",
 		"make uninstall",
+		"make uninstall BINDIR=/custom/bin",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("README.md missing %q\n%s", snippet, text)

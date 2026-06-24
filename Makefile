@@ -11,9 +11,9 @@ help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build the mkproj binary into bin/
-	@mkdir -p $(BIN_DIR) $(PWD)/.cache/tokf
+	@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf
 	# Keep tokf cache/tracking writes inside the repo for restricted environments.
-	@export GOCACHE=$(PWD)/.cache/go-build TOKF_HOME=$(PWD)/.cache/tokf TOKF_DB_PATH=$(PWD)/.cache/tokf/tracking.db; \
+	@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
