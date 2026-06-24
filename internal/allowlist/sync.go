@@ -7,8 +7,6 @@ import (
 	"os"
 	"strings"
 	"text/template"
-
-	"mkproj/internal/project"
 )
 
 const Version = 1
@@ -84,14 +82,19 @@ func Detect(contents string) (Status, error) {
 }
 
 func InferLanguage(contents string) (string, error) {
+	block, err := extractManagedBlock(contents)
+	if err != nil {
+		return "", err
+	}
+
 	matches := make([]string, 0, 3)
-	if strings.Contains(contents, `"Bash(go:*)",`) {
+	if strings.Contains(block, `"Bash(go:*)",`) {
 		matches = append(matches, "go")
 	}
-	if strings.Contains(contents, `"Bash(python:*)",`) || strings.Contains(contents, `"Bash(uv:*)",`) {
+	if strings.Contains(block, `"Bash(python:*)",`) || strings.Contains(block, `"Bash(uv:*)",`) {
 		matches = append(matches, "python")
 	}
-	if strings.Contains(contents, `"Bash(dotnet:*)",`) {
+	if strings.Contains(block, `"Bash(dotnet:*)",`) {
 		matches = append(matches, "csharp")
 	}
 
@@ -105,7 +108,7 @@ func InferLanguage(contents string) (string, error) {
 	}
 }
 
-func CanonicalBlock(assets fs.FS, language string) (string, error) {
+func CanonicalBlock(assets fs.FS, language string, includePersonal bool) (string, error) {
 	data, err := fs.ReadFile(assets, "templates/common/claude/settings.local.json.tmpl")
 	if err != nil {
 		return "", err
@@ -117,7 +120,13 @@ func CanonicalBlock(assets fs.FS, language string) (string, error) {
 	}
 
 	var rendered bytes.Buffer
-	if err := tmpl.Execute(&rendered, project.Variables{Language: strings.TrimSpace(language)}); err != nil {
+	if err := tmpl.Execute(&rendered, struct {
+		Language        string
+		IncludePersonal bool
+	}{
+		Language:        strings.TrimSpace(language),
+		IncludePersonal: includePersonal,
+	}); err != nil {
 		return "", err
 	}
 

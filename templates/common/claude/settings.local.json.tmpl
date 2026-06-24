@@ -93,6 +93,22 @@
 {{- else if eq .Language "csharp" }}
       "Bash(dotnet:*)",
 {{- end }}
+{{- if .IncludePersonal }}
+      // BEGIN MKPROJ PERSONAL
+      "Bash(gw:*)",
+      "Bash(rtk:*)",
+      "Bash(slack-cli:*)",
+      "Bash(gcloud auth:*)",
+      "Bash(gcloud services list:*)",
+      "Bash(az account:*)",
+      "Bash(az rest:*)",
+      "Bash(az costmanagement:*)",
+      "Bash(brew install:*)",
+      "Bash(brew search:*)",
+      "Bash(brew info:*)",
+      "Bash(docker images:*)",
+      // END MKPROJ PERSONAL
+{{- end }}
       // END MKPROJ ALLOW
       "Bash(true)"
     ],
