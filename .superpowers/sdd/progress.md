@@ -28,8 +28,9 @@
 
 ### allowlist-reconciler
 
-- Status: pending
+- Status: complete
 - Issues: `rom`
+- Landed: PR `#13`; issue closed in Beads and merged result pulled back onto the execution branch
 
 ### maintainer-refresh
 
@@ -42,3 +43,8 @@
 - Status: complete
 - Issues: `zz8`, `ebp`
 - Landed: `ai_support` PR `#3` published the canonical guideline files; mkproj PR `#10` enforced the floor and aligned shipped overlays
+
+## Remaining work
+
+- In-scope v1 slices: none
+- Post-v1 backlog intentionally open: `7eu`

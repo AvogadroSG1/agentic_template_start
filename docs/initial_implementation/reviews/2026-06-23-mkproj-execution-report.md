@@ -17,9 +17,12 @@
 - Guideline-publication plus conformance slice completed through `ai_support` PR `#3` and mkproj PR `#10`.
   - BDD/spec evidence: `test/guideline_conformance_test.go` proves canonical guideline reachability, shipped v1 floor conformance, extra-tool tolerance, and failure for non-guideline-backed languages.
   - Shipped behavior: Go, Python, and C# golden overlays now carry the published floor tools they claim, including `go-cmp`, `go test -cover`, Python dev/test coverage packages, and `NSubstitute`.
+- Allowlist reconciler slice completed through PR `#13`.
+  - BDD/spec evidence: `cmd/mkproj/main_test.go` now covers `--check` non-mutation, stale notification output, `--include-personal` opt-in behavior, and conflicting marker failure; `internal/allowlist/sync_test.go` now covers managed-block-scoped inference, missing marker failure, and personal-block rendering.
+  - Shipped behavior: `mkproj sync-allowlist` now infers language only from the managed block, rewrites only that block, supports optional personal rules via `--include-personal`, and leaves SessionStart in advisory `--check` mode with no automatic mutation.
 - Skills validated:
-  - Implementation checks: `receiving-code-review`, `systematic-debugging`
-  - Review gates: `verification-before-completion`, `requesting-code-review`
+  - Implementation checks: `test-driven-development`, `systematic-debugging`
+  - Review gates: `requesting-code-review`, focused reviewer pass with no findings on the allowlist slice
 
 ## Assumptions made
 
@@ -34,6 +37,7 @@
 - A live `mkproj init` fixture could not be carried to full completion because `instill init` in this environment reports `manifest already exists; use --force to reinitialize`, even in an external temp fixture. The hook-chain seam is therefore verified by the focused init test plus prior real Lefthook reproduction of the broken default behavior.
 - `ai_support` main was dirty with extensive unrelated changes, including the three guideline files required by `zz8`. Resolved by creating `/private/tmp/ai-support-codex-publish-6ms-guidelines` from `origin/main`, copying only `guidelines/{golang,python,csharp}.md`, and merging `ai_support` PR `#3`.
 - The `apply_patch` tool repeatedly hit a protected-branch hook false positive inside linked worktrees, so direct file writes were used as a fallback within feature worktrees when necessary.
+- `bd close` in linked worktrees continued to hit auto-export staging failures, so the closeout sync explicitly re-exported `.beads/issues.jsonl` before commit.
 
 ## Integration notes
 
@@ -42,4 +46,5 @@
 - Downstream generated repos now receive matching repo-root/template scanner and guard assets, plus Claude/Codex hook wiring that shares one deny-only guard seam.
 - `internal/init` now assumes any post-Beads forced Lefthook install may leave `.old` wrappers behind and repairs them into `*.old` + `*.lefthook` + wrapper form before the initial commit.
 - Canonical language guidance now lives durably on `ai_support` `main` via PR `#3`, and mkproj's conformance harness reads those stable paths directly rather than vendoring guideline snapshots.
-- The only remaining in-scope implementation slice is `agentic_template_start-rom` (`mkproj sync-allowlist` plus stale notify). `7eu` remains post-v1 backlog work.
+- All in-scope v1 implementation slices are now complete. The only remaining open issue is `7eu`, which is explicitly post-v1 backlog work.
+- Beads still shows epic `wqh` in progress because `7eu` remains attached under it; if Peter wants the epic itself closed for v1 accounting, that child linkage should be revisited rather than silently changing scope here.
