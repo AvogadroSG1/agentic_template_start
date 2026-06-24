@@ -9,6 +9,7 @@
 .claude/settings.local.json
 .worktrees/
 .cache/
+bin/
 
 # Local skill backups — transient, do not commit
 .claude/backups/
