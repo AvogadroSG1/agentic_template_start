@@ -1,7 +1,7 @@
 [tools]
 go = "1.26.2"
 golangci-lint = "latest"
-govulncheck = "latest"
+"aqua:golang/vuln/govulncheck" = "latest"
 lefthook = "latest"
 
 [tasks.fmt]
