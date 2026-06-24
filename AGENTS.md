@@ -1,40 +1,73 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+This file is the project-specific guide for working on the `mkproj` generator itself. `CLAUDE.md` is a symlink to this file so Claude Code and Codex read the same instructions.
 
-## Quick Reference
+## WHAT
+
+- `mkproj` is a Go `1.24.x` CLI that scaffolds AI-native repositories from embedded assets.
+- `cmd/mkproj/main.go` owns the command surface: `init`, `sync-allowlist`, and `update`.
+- `internal/init/` orchestrates project creation; `internal/scaffold/` writes and composes assets; `internal/allowlist/` owns the managed block reconciler; `internal/update/` owns maintainer refresh.
+- `templates/common/` holds assets that every generated repo receives.
+- `templates/golden/<stack>/` holds the shipped v1 stack snapshots and overlays.
+- `sources.yaml` is the maintainer-side recipe registry for refreshing vendored snapshots.
+- `docs/PRD.md`, `docs/SPEC.md`, `docs/adr/`, and `CONTEXT.md` are the authoritative intent, behavior, decision, and vocabulary documents.
+
+## WHY
+
+- This repo exists to make `mkproj init` produce a complete working repository with no manual follow-up.
+- The generator MUST preserve the core product invariants: empty-directory init, generated repos that work without `mkproj` installed, a deny-only guard, and one shared gate pipeline used locally and in CI.
+- Root `AGENTS.md` is for contributors working on the generator. Generated repositories get their own instructions from `templates/common/AGENTS.md.tmpl`.
+- Contributors MUST keep generator behavior, shipped templates, and contributor-facing docs aligned so downstream repos do not drift from the documented workflow.
+
+## HOW
+
+- Run `bd prime` first and use `bd` for all task tracking in this repo.
+- If work is not already tracked, create a Beads issue before editing files.
+- Keep shell commands non-interactive: prefer `cp -f`, `mv -f`, `rm -f`, and other batch-safe forms.
+- Use the README for the full contributor workflow and command catalog: [`README.md`](./README.md).
+
+### Read First
+
+- Read `docs/SPEC.md` before changing behavior.
+- Read `docs/PRD.md` when validating user value or scope.
+- Read `docs/adr/` before changing a protected invariant or established approach.
+- Read `CONTEXT.md` when a term or boundary is ambiguous.
+
+### Common Commands
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+bd ready
+bd show <id>
+bd update <id> --claim
+GOCACHE=$PWD/.cache/go-build go test ./... -count=1
+go build ./cmd/mkproj
 ```
 
-## Non-Interactive Shell Commands
+### File Ownership Cues
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+- Edit root `AGENTS.md` when changing how contributors should work on `mkproj`.
+- Edit `templates/common/AGENTS.md.tmpl` when changing what scaffolded repos should tell agents.
+- Edit `templates/common/` for shared generated assets.
+- Edit `templates/golden/` and `sources.yaml` together when changing shipped stack behavior or maintainer refresh inputs.
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
+### Change Placement
 
-**Use these forms instead:**
-```bash
-# Force overwrite without prompting
-cp -f source dest           # NOT: cp source dest
-mv -f source dest           # NOT: mv source dest
-rm -f file                  # NOT: rm file
+- Put generator logic in `internal/` packages, not templates.
+- Put generated-repo defaults in `templates/common/` unless they are stack-specific.
+- Put stack-specific output in `templates/golden/<stack>/`.
+- Put maintainer refresh intent in `sources.yaml` and keep overlays deterministic.
 
-# For recursive operations
-rm -rf directory            # NOT: rm -r directory
-cp -rf source dest          # NOT: cp -r source dest
-```
+### Verification Expectations
 
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
+- Prefer behavior-first changes: update the nearest test before or alongside code.
+- When scaffold output changes, verify both focused package tests and the full suite.
+- Treat documentation as part of the feature when commands, workflow, or invariants change.
+
+### Session Completion
+
+- Close or update the relevant Beads issue.
+- Run the appropriate verification commands.
+- Commit and push all finished work before ending the session.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
@@ -44,10 +77,10 @@ This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full 
 ### Quick Reference
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
+bd ready
+bd show <id>
+bd update <id> --claim
+bd close <id>
 ```
 
 ### Rules
@@ -60,25 +93,15 @@ bd close <id>         # Complete work
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+1. File follow-up issues for anything not completed.
+2. Run quality gates for any code or template change.
+3. Update issue status in Beads.
+4. Push to remote:
    ```bash
    git pull --rebase
    bd dolt push
    git push
-   git status  # MUST show "up to date with origin"
+   git status
    ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+5. Verify the branch is fully pushed before stopping.
 <!-- END BEADS INTEGRATION -->
