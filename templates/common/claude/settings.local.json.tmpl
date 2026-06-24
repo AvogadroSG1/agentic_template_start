@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      // BEGIN MKPROJ ALLOW v:1
+      "// BEGIN MKPROJ ALLOW v:1",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -94,7 +94,6 @@
       "Bash(dotnet:*)",
 {{- end }}
 {{- if .IncludePersonal }}
-      // BEGIN MKPROJ PERSONAL
       "Bash(gw:*)",
       "Bash(rtk:*)",
       "Bash(slack-cli:*)",
@@ -107,9 +106,8 @@
       "Bash(brew search:*)",
       "Bash(brew info:*)",
       "Bash(docker images:*)",
-      // END MKPROJ PERSONAL
 {{- end }}
-      // END MKPROJ ALLOW
+      "// END MKPROJ ALLOW",
       "Bash(true)"
     ],
     "deny": [
