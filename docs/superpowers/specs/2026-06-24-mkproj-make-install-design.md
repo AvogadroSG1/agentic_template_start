@@ -38,7 +38,7 @@ in `$HOME/.local/bin`, which is already on the user's PATH.
 | Target | Behavior |
 |--------|----------|
 | `help` (default) | Self-documenting list of targets. Runs when `make` is called with no arguments. |
-| `build` | `go build -o bin/mkproj ./cmd/mkproj`. Produces the host binary in `bin/`. |
+| `build` | `mkdir -p bin $(CURDIR)/.cache/tokf`, then exports `GOCACHE=$(CURDIR)/.cache/go-build`, `TOKF_HOME=$(CURDIR)/.cache/tokf`, and `TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db` before running `go build -o bin/mkproj ./cmd/mkproj`. Produces the host binary in `bin/` while keeping cache and tokf writes inside the repo under `make -C`. |
 | `test` | `GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1`. Matches the project's documented verification command while keeping cache writes inside the target repo under `make -C`. |
 | `install` | Depends on `build`. Creates `$(BINDIR)` if absent, then `install -m 0755 bin/mkproj $(BINDIR)/mkproj`. |
 | `uninstall` | Removes `$(BINDIR)/mkproj`. |
@@ -52,6 +52,9 @@ in `$HOME/.local/bin`, which is already on the user's PATH.
 - **`install(1)` over `cp`** — sets the `0755` mode atomically; standard for
   installing executables.
 - **`install` depends on `build`** — a single `make install` always builds fresh.
+- **Repo-local build caches** — the build target exports `GOCACHE`, `TOKF_HOME`,
+  and `TOKF_DB_PATH` into `$(CURDIR)/.cache/` so restricted environments do not
+  attempt writes under `$HOME` during `make -C`.
 - **All targets `.PHONY`** — none of the target names correspond to on-disk files
   (build output lives under `bin/`).
 - **`bin/` added to `.gitignore`** — it is not currently ignored.
@@ -61,25 +64,29 @@ in `$HOME/.local/bin`, which is already on the user's PATH.
 ```mermaid
 flowchart LR
     A[make install] --> B[make build]
-    B --> C["go build -o bin/mkproj ./cmd/mkproj"]
-    A --> D["mkdir -p $BINDIR"]
-    D --> E["install -m 0755 bin/mkproj $BINDIR/mkproj"]
+    B --> C["mkdir -p bin and .cache/tokf"]
+    C --> D["export GOCACHE TOKF_HOME TOKF_DB_PATH under $(CURDIR)/.cache/"]
+    D --> E["go build -o bin/mkproj ./cmd/mkproj"]
+    A --> F["mkdir -p $BINDIR"]
+    F --> G["install -m 0755 bin/mkproj $BINDIR/mkproj"]
 ```
 
 ## Verification
 
 1. `make build` → `bin/mkproj` exists and is executable.
-2. `make install` → `$HOME/.local/bin/mkproj` exists; `which mkproj` resolves
+2. `make -n -C <repo> build` (or the matching Go contract test) shows
+   `GOCACHE`, `TOKF_HOME`, and `TOKF_DB_PATH` resolved inside `<repo>/.cache/`.
+3. `make install` → `$HOME/.local/bin/mkproj` exists; `which mkproj` resolves
    there; `mkproj` runs.
-3. `make test` → full Go suite passes.
-4. `make clean` → `bin/` removed.
-5. `make uninstall` → installed binary removed.
-6. `make help` (or bare `make`) → lists targets.
-7. `git status` → `bin/` not shown as untracked.
+4. `make test` → full Go suite passes.
+5. `make clean` → `bin/` removed.
+6. `make uninstall` → installed binary removed.
+7. `make help` (or bare `make`) → lists targets.
+8. `git status` → `bin/` not shown as untracked.
 
 ## Error handling
 
 - Standard Make failure semantics: any failed recipe line aborts the target with
   a non-zero exit code.
-- `mkdir -p` / `install -d` makes the install idempotent regardless of whether
-  `$(BINDIR)` already exists.
+- `mkdir -p` makes the install idempotent regardless of whether `$(BINDIR)`
+  already exists.

@@ -188,6 +188,36 @@ func TestMakeTestTargetUsesRepoLocalCacheUnderMakeDashC(t *testing.T) {
 	}
 }
 
+func TestMakeBuildTargetUsesRepoLocalCacheUnderMakeDashC(t *testing.T) {
+	t.Parallel()
+
+	lockMakefileTest(t)
+
+	repoRoot := repoRoot(t)
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skipf("make not available: %v", err)
+	}
+
+	cmd := exec.Command("make", "-n", "-C", repoRoot, "build")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make -n -C build error = %v\n%s", err, output)
+	}
+
+	text := string(output)
+	for _, snippet := range []string{
+		"mkdir -p bin " + filepath.Join(repoRoot, ".cache", "tokf"),
+		"export GOCACHE=" + filepath.Join(repoRoot, ".cache", "go-build"),
+		"TOKF_HOME=" + filepath.Join(repoRoot, ".cache", "tokf"),
+		"TOKF_DB_PATH=" + filepath.Join(repoRoot, ".cache", "tokf", "tracking.db"),
+		"go build -o bin/mkproj ./cmd/mkproj",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("make -n -C build output missing %q\n%s", snippet, text)
+		}
+	}
+}
+
 func TestGitIgnoreIgnoresBinDirectory(t *testing.T) {
 	t.Parallel()
 

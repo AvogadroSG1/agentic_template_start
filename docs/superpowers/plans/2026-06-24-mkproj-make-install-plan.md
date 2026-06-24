@@ -4,7 +4,7 @@
 
 **Goal:** Add a repo-root `Makefile` so contributors can build, test, install, uninstall, clean, and discover `mkproj` from one consistent command surface.
 
-**Architecture:** Keep the feature repo-local and boring: a root `Makefile` owns developer ergonomics, while focused Go tests under `test/` pin the contract by checking exact target text and exercising the non-recursive targets. The `test` target itself is verified statically in Go and then exercised once from the shell after implementation so we do not recurse `go test ./...` from inside `go test ./...`.
+**Architecture:** Keep the feature repo-local and boring: a root `Makefile` owns developer ergonomics, while focused Go tests under `test/` pin the contract by checking exact target text and exercising the non-recursive targets. The `build` target MUST keep `GOCACHE` and tokf writes under `$(CURDIR)/.cache/` for restricted environments, and the `test` target itself is verified statically in Go and then exercised once from the shell after implementation so we do not recurse `go test ./...` from inside `go test ./...`.
 
 **Tech Stack:** GNU Make, Go 1.24, the standard Go `testing` package, the existing `test` package helpers, repo-root `.gitignore`, and contributor docs in `README.md`
 
@@ -15,6 +15,7 @@
 - `make install` MUST build the host-platform binary and place it in `$HOME/.local/bin` by default.
 - `BINDIR ?= $(HOME)/.local/bin` MUST remain overridable from the command line.
 - The root `Makefile` MUST expose exactly these public targets: `help`, `build`, `test`, `install`, `uninstall`, and `clean`.
+- The `build` target MUST keep `GOCACHE`, `TOKF_HOME`, and `TOKF_DB_PATH` inside `$(CURDIR)/.cache/`.
 - The `test` target MUST run `GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1`.
 - Shell completions MUST remain out of scope.
 - Version or `ldflags` embedding MUST remain out of scope.
@@ -27,13 +28,15 @@
 flowchart LR
     A[Contributor runs make] --> B{Target}
     B -->|help| C[List documented targets]
-    B -->|build| D[go build -o bin/mkproj ./cmd/mkproj]
-    B -->|test| E[GOCACHE pinned go test ./... -count=1]
-    B -->|install| F[build target runs first]
-    F --> G[mkdir -p BINDIR]
-    G --> H[install -m 0755 bin/mkproj BINDIR/mkproj]
-    B -->|uninstall| I[rm -f BINDIR/mkproj]
-    B -->|clean| J[rm -rf bin]
+    B -->|build| D[mkdir -p bin and .cache/tokf]
+    D --> E[export GOCACHE TOKF_HOME TOKF_DB_PATH in .cache]
+    E --> F[go build -o bin/mkproj ./cmd/mkproj]
+    B -->|test| G[GOCACHE pinned go test ./... -count=1]
+    B -->|install| H[build target runs first]
+    H --> I[mkdir -p BINDIR]
+    I --> J[install -m 0755 bin/mkproj BINDIR/mkproj]
+    B -->|uninstall| K[rm -f BINDIR/mkproj]
+    B -->|clean| L[rm -rf bin]
 ```
 
 ## File Map
@@ -87,6 +90,8 @@ func TestMakefileDefinesCoreTargets(t *testing.T) {
 		".PHONY: help build test clean",
 		"help: ## Show available targets",
 		"build: ## Build the mkproj binary into bin/",
+		"\t@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf",
+		"\t@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \\",
 		"\tgo build -o $(BIN_PATH) ./cmd/mkproj",
 		"test: ## Run the full Go test suite",
 		"\tGOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1",
@@ -184,7 +189,8 @@ help: ## Show available targets
 	@awk 'BEGIN {FS = ": ## "}; /^[a-zA-Z0-9_-]+: ## / {printf "%-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build the mkproj binary into bin/
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf
+	@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
@@ -377,7 +383,8 @@ help: ## Show available targets
 	@awk 'BEGIN {FS = ": ## "}; /^[a-zA-Z0-9_-]+: ## / {printf "%-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build the mkproj binary into bin/
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf
+	@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
@@ -475,7 +482,7 @@ git commit -m "build: add make install lifecycle" -m "Co-Authored-By: Peter O'Co
 
 **Interfaces:**
 - Consumes: the final public target surface from Task 2 and the existing `Build The CLI` plus `Common Development Commands` sections in `README.md`
-- Produces: `TestReadmeDocumentsMakeWorkflow(t *testing.T)` and contributor-facing documentation for `make install`, `make build`, `make test`, `make clean`, and `make uninstall`
+- Produces: `TestReadmeDocumentsMakeWorkflow(t *testing.T)` and contributor-facing documentation for `make help`, `make install`, `make build`, `make test`, `make clean`, and `make uninstall`
 
 - [ ] **Step 1: Add a failing README documentation contract test**
 
@@ -493,15 +500,26 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 
 	text := string(data)
 	for _, snippet := range []string{
+		"make help",
 		"make install",
 		"make install BINDIR=/custom/bin",
 		"make build",
 		"make test",
 		"make clean",
 		"make uninstall",
+		"make uninstall BINDIR=/custom/bin",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("README.md missing %q\n%s", snippet, text)
+		}
+	}
+
+	for _, snippet := range []string{
+		"go build ./cmd/mkproj",
+		"go build -o $(BIN_PATH) ./cmd/mkproj",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("README.md still contains stale guidance %q\n%s", snippet, text)
 		}
 	}
 }
@@ -523,6 +541,12 @@ Replace the `Build The CLI` section in `README.md` with this content:
 
 ````markdown
 ### Install The CLI
+
+Discover the available targets first:
+
+```bash
+make help
+```
 
 For the normal local developer install path:
 
@@ -560,6 +584,12 @@ Remove the installed binary from the selected install directory:
 
 ```bash
 make uninstall
+```
+
+Remove the installed binary from a custom install directory:
+
+```bash
+make uninstall BINDIR=/custom/bin
 ```
 
 For one-off runs during development without writing `bin/mkproj`:
