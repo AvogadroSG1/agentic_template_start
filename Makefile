@@ -17,7 +17,7 @@ build: ## Build the mkproj binary into bin/
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
-	GOCACHE=$(PWD)/.cache/go-build go test ./... -count=1
+	GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1
 
 install: build ## Install mkproj into BINDIR
 	@mkdir -p $(BINDIR)

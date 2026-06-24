@@ -15,7 +15,7 @@
 - `make install` MUST build the host-platform binary and place it in `$HOME/.local/bin` by default.
 - `BINDIR ?= $(HOME)/.local/bin` MUST remain overridable from the command line.
 - The root `Makefile` MUST expose exactly these public targets: `help`, `build`, `test`, `install`, `uninstall`, and `clean`.
-- The `test` target MUST run `GOCACHE=$(PWD)/.cache/go-build go test ./... -count=1`.
+- The `test` target MUST run `GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1`.
 - Shell completions MUST remain out of scope.
 - Version or `ldflags` embedding MUST remain out of scope.
 - `cobra` migration MUST remain out of scope.
@@ -89,7 +89,7 @@ func TestMakefileDefinesCoreTargets(t *testing.T) {
 		"build: ## Build the mkproj binary into bin/",
 		"\tgo build -o $(BIN_PATH) ./cmd/mkproj",
 		"test: ## Run the full Go test suite",
-		"\tGOCACHE=$(PWD)/.cache/go-build go test ./... -count=1",
+		"\tGOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1",
 		"clean: ## Remove local build outputs",
 		"\trm -rf $(BIN_DIR)",
 	} {
@@ -188,7 +188,7 @@ build: ## Build the mkproj binary into bin/
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
-	GOCACHE=$(PWD)/.cache/go-build go test ./... -count=1
+	GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1
 
 clean: ## Remove local build outputs
 	rm -rf $(BIN_DIR)
@@ -381,7 +381,7 @@ build: ## Build the mkproj binary into bin/
 	go build -o $(BIN_PATH) ./cmd/mkproj
 
 test: ## Run the full Go test suite
-	GOCACHE=$(PWD)/.cache/go-build go test ./... -count=1
+	GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1
 
 install: build ## Install mkproj into BINDIR
 	@mkdir -p $(BINDIR)

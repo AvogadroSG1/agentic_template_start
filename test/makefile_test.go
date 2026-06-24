@@ -33,7 +33,7 @@ func TestMakefileDefinesCoreTargets(t *testing.T) {
 		"\t@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \\",
 		"\tgo build -o $(BIN_PATH) ./cmd/mkproj",
 		"test: ## Run the full Go test suite",
-		"\tGOCACHE=$(PWD)/.cache/go-build go test ./... -count=1",
+		"\tGOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1",
 		"clean: ## Remove local build outputs",
 		"\trm -rf $(BIN_DIR)",
 	} {
@@ -163,6 +163,28 @@ func TestMakeInstallAndUninstallRoundTrip(t *testing.T) {
 	}
 	if _, err := os.Stat(installedBinary); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Stat(%s) error = %v, want not exists", installedBinary, err)
+	}
+}
+
+func TestMakeTestTargetUsesRepoLocalCacheUnderMakeDashC(t *testing.T) {
+	t.Parallel()
+
+	lockMakefileTest(t)
+
+	repoRoot := repoRoot(t)
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skipf("make not available: %v", err)
+	}
+
+	cmd := exec.Command("make", "-n", "-C", repoRoot, "test")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make -n -C test error = %v\n%s", err, output)
+	}
+
+	want := "GOCACHE=" + filepath.Join(repoRoot, ".cache", "go-build") + " go test ./... -count=1"
+	if !strings.Contains(string(output), want) {
+		t.Fatalf("make -n -C test output missing %q\n%s", want, string(output))
 	}
 }
 

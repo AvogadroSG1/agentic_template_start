@@ -39,7 +39,7 @@ in `$HOME/.local/bin`, which is already on the user's PATH.
 |--------|----------|
 | `help` (default) | Self-documenting list of targets. Runs when `make` is called with no arguments. |
 | `build` | `go build -o bin/mkproj ./cmd/mkproj`. Produces the host binary in `bin/`. |
-| `test` | `GOCACHE=$(PWD)/.cache/go-build go test ./... -count=1`. Matches the project's documented verification command. |
+| `test` | `GOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1`. Matches the project's documented verification command while keeping cache writes inside the target repo under `make -C`. |
 | `install` | Depends on `build`. Creates `$(BINDIR)` if absent, then `install -m 0755 bin/mkproj $(BINDIR)/mkproj`. |
 | `uninstall` | Removes `$(BINDIR)/mkproj`. |
 | `clean` | Removes `bin/`. |
