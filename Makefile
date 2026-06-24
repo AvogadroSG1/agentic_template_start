@@ -12,6 +12,7 @@ help: ## Show available targets
 
 build: ## Build the mkproj binary into bin/
 	@mkdir -p $(BIN_DIR) $(PWD)/.cache/tokf
+	# Keep tokf cache/tracking writes inside the repo for restricted environments.
 	@export GOCACHE=$(PWD)/.cache/go-build TOKF_HOME=$(PWD)/.cache/tokf TOKF_DB_PATH=$(PWD)/.cache/tokf/tracking.db; \
 	go build -o $(BIN_PATH) ./cmd/mkproj
 

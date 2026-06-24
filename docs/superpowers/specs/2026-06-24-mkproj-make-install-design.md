@@ -2,7 +2,7 @@
 
 - **Beads issue:** agentic_template_start-0ic
 - **Date:** 2026-06-24
-- **Status:** Approved (pending spec review)
+- **Status:** Approved
 
 ## Problem
 
