@@ -63,6 +63,11 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		if err := i.Runner.Run(ctx, targetDir, step.name, step.command, step.args...); err != nil {
 			return failWithRecovery(targetDir, step.name, err)
 		}
+		if step.name == "mise install" && vars.Language == "go" {
+			if err := i.Runner.Run(ctx, targetDir, "go mod tidy", "go", "mod", "tidy"); err != nil {
+				return failWithRecovery(targetDir, "go mod tidy", err)
+			}
+		}
 		if step.name == "lefthook install" {
 			if err := repairBeadsHookChain(targetDir); err != nil {
 				return failWithRecovery(targetDir, "lefthook chain repair", err)

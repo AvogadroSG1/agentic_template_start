@@ -58,6 +58,7 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		"instill check-skills",
 		"mise trust",
 		"mise install",
+		"go mod tidy",
 		"lefthook install",
 		"git add",
 		"git commit",
