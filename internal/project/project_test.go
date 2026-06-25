@@ -29,6 +29,9 @@ func TestResolveVariablesDerivesCanonicalNames(t *testing.T) {
 	if vars.CSharpNamespace != "MyCoolApi" {
 		t.Fatalf("CSharpNamespace = %q, want %q", vars.CSharpNamespace, "MyCoolApi")
 	}
+	if vars.RepoSlug != "my-cool-api" {
+		t.Fatalf("RepoSlug = %q, want %q", vars.RepoSlug, "my-cool-api")
+	}
 }
 
 func TestResolveVariablesUsesPlaceholderModulePathWithoutGitHubRemote(t *testing.T) {

@@ -100,6 +100,7 @@ func ResolveVariables(input Input) (Variables, error) {
 		GoModule:        modulePath,
 		PythonPackage:   strings.Join(slugWords, "_"),
 		CSharpNamespace: pascalCase(slugWords),
+		RepoSlug:        slugKebab(slugWords),
 		IncludePersonal: false,
 	}, nil
 }

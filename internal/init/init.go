@@ -76,7 +76,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	}
 
 	if err := remote.Publish(ctx, i.Runner, targetDir, remote.PublishOptions{
-		RepoName: filepath.Base(targetDir),
+		RepoName: vars.RepoSlug,
 		Remote:   vars.Remote,
 		URL:      vars.RemoteURL,
 	}); err != nil {
