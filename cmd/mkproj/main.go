@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/huh"
+
 	"mkproj"
 	allowlist "mkproj/internal/allowlist"
 	"mkproj/internal/delegate"
@@ -201,10 +203,37 @@ type terminalPrompter struct {
 }
 
 func (p terminalPrompter) Ask(_ string, label string, choices []string, defaultValue string) (string, error) {
-	promptText := label
 	if len(choices) > 0 {
-		promptText += " [" + strings.Join(choices, "/") + "]"
+		return p.askSelect(label, choices, defaultValue)
 	}
+	return p.askText(label, defaultValue)
+}
+
+func (p terminalPrompter) askSelect(label string, choices []string, defaultValue string) (string, error) {
+	// Seed the target variable so huh positions the cursor on the default.
+	selected := defaultValue
+	if selected == "" {
+		selected = choices[0]
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(label).
+				Options(huh.NewOptions(choices...)...).
+				Value(&selected),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+
+	return selected, nil
+}
+
+func (p terminalPrompter) askText(label string, defaultValue string) (string, error) {
+	promptText := label
 	if defaultValue != "" {
 		promptText += " (default: " + defaultValue + ")"
 	}
