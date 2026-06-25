@@ -1,8 +1,8 @@
 [tools]
 python = "3.14.4"
 ruff = "latest"
-pyright = "latest"
-pip-audit = "latest"
+"npm:pyright" = "latest"
+"pipx:pip-audit" = "latest"
 lefthook = "latest"
 
 [tasks.fmt]
