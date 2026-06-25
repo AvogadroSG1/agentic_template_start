@@ -43,6 +43,7 @@ type Variables struct {
 	GoModule        string
 	PythonPackage   string
 	CSharpNamespace string
+	RepoSlug        string
 	IncludePersonal bool
 }
 
@@ -99,6 +100,7 @@ func ResolveVariables(input Input) (Variables, error) {
 		GoModule:        modulePath,
 		PythonPackage:   strings.Join(slugWords, "_"),
 		CSharpNamespace: pascalCase(slugWords),
+		RepoSlug:        slugKebab(slugWords),
 		IncludePersonal: false,
 	}, nil
 }
