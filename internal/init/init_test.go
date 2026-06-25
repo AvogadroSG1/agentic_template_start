@@ -123,7 +123,7 @@ func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
 		t.Fatalf("step order = %#v, want %#v", got, want)
 	}
 
-	assertRecordedStepArgs(t, runner.steps, "pip install", "install", "-e", ".[dev]")
+	assertRecordedStepArgs(t, runner.steps, "pip install", "exec", "--", "pip", "install", "-e", ".[dev]")
 }
 
 func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
