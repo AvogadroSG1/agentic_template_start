@@ -70,6 +70,62 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang/golang-cli,productivity/mise")
 }
 
+func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Python.gitignore":         {Data: []byte("__pycache__/\n")},
+		"templates/golden/python-cli-typer/pyproject.toml.tmpl": {Data: []byte("[project]\nname = \"app\"\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Snake App",
+		Language:    "python",
+		ProjectType: "cli",
+		Stack:       "python-cli-typer",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := []string{
+		"git init",
+		"git identity name",
+		"git identity email",
+		"bd init",
+		"instill init",
+		"instill check-skills",
+		"mise trust",
+		"mise install",
+		"pip install",
+		"lefthook install",
+		"git add",
+		"git commit",
+	}
+	if got := runner.stepNames(); !equalStrings(got, want) {
+		t.Fatalf("step order = %#v, want %#v", got, want)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "pip install", "install", "-e", ".[dev]")
+}
+
 func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
 	t.Parallel()
 
