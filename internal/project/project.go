@@ -43,6 +43,7 @@ type Variables struct {
 	GoModule        string
 	PythonPackage   string
 	CSharpNamespace string
+	RepoSlug        string
 	IncludePersonal bool
 }
 
