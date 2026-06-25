@@ -20,6 +20,7 @@ EXEMPT_PATTERNS=(
   "*.example"
   "*.sample"
   "*.template"
+  ".claude/hooks/*"
 )
 
 usage() {
