@@ -860,7 +860,7 @@ func seedRepresentativeNoOpVanilla(t *testing.T, repoRoot string) {
 	t.Helper()
 
 	for relPath, contents := range map[string]string{
-		"templates/golden/go-cli-cobra/go.mod.tmpl": "module {{.ModulePath}}\n\ngo 1.24.4\n",
+		"templates/golden/go-cli-cobra/go.mod.tmpl": "module {{.ModulePath}}\n\ngo 1.26.2\n",
 		"templates/golden/go-cli-cobra/main.go.tmpl": `package main
 
 import (
@@ -899,7 +899,7 @@ func newRepresentativeStackRunner(t *testing.T) *recordingCommandRunner {
 			if modulePath == "" {
 				return errors.New("missing --pkg-name")
 			}
-			mustWriteFile(t, filepath.Join(dir, "go.mod"), "module "+modulePath+"\n\ngo 1.24.4\n")
+			mustWriteFile(t, filepath.Join(dir, "go.mod"), "module "+modulePath+"\n\ngo 1.26.2\n")
 			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n\n\t\""+modulePath+"/cmd\"\n)\n\nfunc main() {\n\tif err := cmd.Execute(); err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\tos.Exit(1)\n\t}\n}\n")
 			mustWriteFile(t, filepath.Join(dir, "cmd", "root.go"), "package cmd\n\nvar rootCmd = struct{}{}\n")
 		case len(args) >= 2 && args[0] == "add" && args[1] == "serve":
