@@ -99,7 +99,7 @@ func runInit(args []string, assets fs.FS) error {
 
 	initializer := initcmd.Initializer{
 		Writer: scaffold.Writer{Assets: assets},
-		Runner: delegate.ExecRunner{},
+		Runner: delegate.NewVerboseRunner(os.Stdout),
 	}
 
 	return initializer.Run(context.Background(), cwd, vars)
