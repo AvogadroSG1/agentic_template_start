@@ -182,7 +182,7 @@ func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
 		t.Fatalf("Run() error = %v", err)
 	}
 
-	assertRecordedStepArgs(t, runner.steps, "lefthook install", "install", "--force")
+	assertRecordedStepArgs(t, runner.steps, "lefthook install", "exec", "--", "lefthook", "install", "--force")
 
 	checks := []struct {
 		hook      string

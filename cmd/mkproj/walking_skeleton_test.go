@@ -43,6 +43,11 @@ case "${1:-}" in
   install)
     exit 0
     ;;
+  exec)
+    shift
+    if [ "$1" = "--" ]; then shift; fi
+    exec "$@"
+    ;;
   run)
     task="${2:-}"
     if [ -z "$task" ]; then
