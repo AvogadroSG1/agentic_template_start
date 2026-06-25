@@ -56,7 +56,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
 		{name: "mise trust", command: "mise", args: []string{"trust"}},
 		{name: "mise install", command: "mise", args: []string{"install"}},
-		{name: "lefthook install", command: "lefthook", args: []string{"install", "--force"}},
+		{name: "lefthook install", command: "mise", args: []string{"exec", "--", "lefthook", "install", "--force"}},
 	}
 
 	for _, step := range steps {
