@@ -29,8 +29,14 @@ func (v *VerboseRunner) Run(ctx context.Context, dir string, step string, comman
 	fmt.Fprintf(v.out, "→ %s\n", step)
 	start := time.Now()
 
+	if err := prepareCommandEnv(dir, step, command); err != nil {
+		fmt.Fprintf(v.out, "→ %s ✗ (%.1fs)\n", step, time.Since(start).Seconds())
+		return fmt.Errorf("%s: %w", step, err)
+	}
+
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
+	cmd.Env = commandEnv(dir, step, command)
 
 	lw := &lineWriter{out: v.out}
 	cmd.Stdout = lw
