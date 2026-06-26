@@ -20,15 +20,28 @@ public partial class Program
     /// <returns>The configured web application builder.</returns>
     public static WebApplicationBuilder CreateBuilder(string[] args)
     {
-        return WebApplication.CreateBuilder(args);
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.Services.AddControllers();
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
+
+        return builder;
     }
 
     /// <summary>
-    /// Applies the shared HTTP endpoint configuration to the application.
+    /// Applies the shared HTTP middleware and endpoint configuration.
     /// </summary>
     /// <param name="app">The application to configure.</param>
     public static void ConfigureApp(WebApplication app)
     {
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        app.UseAuthorization();
+        app.MapControllers();
     }
 }

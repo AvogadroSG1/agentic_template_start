@@ -104,8 +104,10 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 			files: []string{
 				"templates/golden/csharp-webapi/Project.csproj.tmpl",
 				"templates/golden/csharp-webapi/Program.cs",
+				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
+				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
 				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/HealthEndpointTests.cs",
+				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
 			},
 		},
 	}
@@ -289,7 +291,9 @@ func TestCSharpWebAPIStarterFilesCarryStyleCopFileHeaders(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Program.cs"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "HealthEndpointTests.cs"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "WeatherForecast.cs.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Controllers", "WeatherForecastController.cs.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs"),
 	}
 
 	for _, path := range files {
@@ -323,6 +327,21 @@ func TestCSharpWebAPIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
 		if !strings.Contains(content, "<GenerateDocumentationFile>true</GenerateDocumentationFile>") {
 			t.Fatalf("%s must enable XML documentation output so StyleCop XML analysis can run:\n%s", path, content)
 		}
+	}
+}
+
+func TestCSharpWebAPIProjectTemplatePinsSwaggerDependencyForStarterProgram(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, `PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"`) {
+		t.Fatalf("webapi project template must pin the swagger dependency used by the starter program:\n%s", content)
 	}
 }
 
@@ -362,9 +381,9 @@ func TestCSharpWebAPITestProjectEnablesImplicitUsings(t *testing.T) {
 	}
 }
 
-func TestCSharpWebAPIHealthEndpointTestUsesStyleCopFriendlyAsyncPattern(t *testing.T) {
+func TestCSharpWebAPIWeatherForecastEndpointTestUsesStyleCopFriendlyAsyncPattern(t *testing.T) {
 	repoRoot := repoRoot(t)
-	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "HealthEndpointTests.cs")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
 
 	contentBytes, err := os.ReadFile(testPath)
 	if err != nil {
@@ -373,14 +392,14 @@ func TestCSharpWebAPIHealthEndpointTestUsesStyleCopFriendlyAsyncPattern(t *testi
 
 	content := string(contentBytes)
 	if !strings.Contains(content, "/// <returns>A task that completes when the assertion finishes.</returns>") {
-		t.Fatalf("health endpoint test must document the async return value for StyleCop:\n%s", content)
+		t.Fatalf("weather forecast endpoint test must document the async return value for StyleCop:\n%s", content)
 	}
 	if !strings.Contains(content, "Program.ConfigureApp(app);") {
-		t.Fatalf("health endpoint test must exercise the shared app configuration entrypoint:\n%s", content)
+		t.Fatalf("weather forecast endpoint test must exercise the shared app configuration entrypoint:\n%s", content)
 	}
 }
 
-func TestCSharpWebAPIProgramTemplateExposesTestableConstructionHooks(t *testing.T) {
+func TestCSharpWebAPIProgramTemplateKeepsControllerBasedStarter(t *testing.T) {
 	repoRoot := repoRoot(t)
 	programPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Program.cs")
 
@@ -392,20 +411,22 @@ func TestCSharpWebAPIProgramTemplateExposesTestableConstructionHooks(t *testing.
 	content := string(contentBytes)
 	for _, snippet := range []string{
 		"var builder = Program.CreateBuilder(args);",
+		"builder.Services.AddControllers();",
 		"var app = builder.Build();",
 		"Program.ConfigureApp(app);",
+		"app.MapControllers();",
 		"public static WebApplicationBuilder CreateBuilder(string[] args)",
 		"public static void ConfigureApp(WebApplication app)",
 	} {
 		if !strings.Contains(content, snippet) {
-			t.Fatalf("program template missing testable webapi construction hook %q:\n%s", snippet, content)
+			t.Fatalf("program template missing controller-based webapi starter snippet %q:\n%s", snippet, content)
 		}
 	}
 }
 
-func TestCSharpWebAPIHealthEndpointTestUsesTestServerClient(t *testing.T) {
+func TestCSharpWebAPIWeatherForecastEndpointTestUsesTestServerClient(t *testing.T) {
 	repoRoot := repoRoot(t)
-	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "HealthEndpointTests.cs")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
 
 	contentBytes, err := os.ReadFile(testPath)
 	if err != nil {
@@ -419,9 +440,55 @@ func TestCSharpWebAPIHealthEndpointTestUsesTestServerClient(t *testing.T) {
 		"builder.WebHost.UseTestServer();",
 		"Program.ConfigureApp(app);",
 		"using var client = app.GetTestClient();",
+		"\"/WeatherForecast\"",
 	} {
 		if !strings.Contains(content, snippet) {
-			t.Fatalf("health endpoint test missing test-server wiring %q:\n%s", snippet, content)
+			t.Fatalf("weather forecast endpoint test missing test-server verification snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastModelUsesTemplateNamespace(t *testing.T) {
+	repoRoot := repoRoot(t)
+	modelPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "WeatherForecast.cs.tmpl")
+
+	contentBytes, err := os.ReadFile(modelPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", modelPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"namespace {{.CSharpNamespace}};",
+		"public sealed class WeatherForecast",
+		"public int TemperatureF => 32 + (int)(this.TemperatureC / 0.5556);",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("weather forecast model missing snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastControllerExposesControllerRoute(t *testing.T) {
+	repoRoot := repoRoot(t)
+	controllerPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Controllers", "WeatherForecastController.cs.tmpl")
+
+	contentBytes, err := os.ReadFile(controllerPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", controllerPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"namespace {{.CSharpNamespace}}.Controllers",
+		"using Microsoft.AspNetCore.Mvc;",
+		"[ApiController]",
+		"[Route(\"[controller]\")]",
+		"[HttpGet(Name = \"GetWeatherForecast\")]",
+		"Enumerable.Range(1, 5)",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("weather forecast controller missing snippet %q:\n%s", snippet, content)
 		}
 	}
 }
