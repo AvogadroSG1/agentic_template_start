@@ -165,6 +165,132 @@ func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
 		"init", "--force", "--skills", "golang/golang-cli,productivity/mise,superpowers/brainstorming")
 }
 
+func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		failRun: func(_ string, command string, args []string) error {
+			if command != "instill" {
+				return nil
+			}
+
+			skillsArg := lastArg(args)
+			switch skillsArg {
+			case "golang/golang-cli,ai-workflow/hookify/skills/writing-rules,productivity/mise":
+				return errors.New("combined init failed")
+			case "ai-workflow/hookify/skills/writing-rules":
+				return errors.New("permission denied")
+			default:
+				return nil
+			}
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"ai-workflow/hookify/skills/writing-rules\",\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "instill init",
+		"init", "--force", "--skills", "golang/golang-cli,ai-workflow/hookify/skills/writing-rules,productivity/mise")
+	assertRecordedStepArgs(t, runner.steps, "instill init (golang/golang-cli)",
+		"init", "--force", "--skills", "golang/golang-cli")
+	assertRecordedStepArgs(t, runner.steps, "instill init (ai-workflow/hookify/skills/writing-rules)",
+		"init", "--force", "--skills", "ai-workflow/hookify/skills/writing-rules")
+	assertRecordedStepArgs(t, runner.steps, "instill init (productivity/mise)",
+		"init", "--force", "--skills", "productivity/mise")
+
+	skills, err := readManifestSkills(filepath.Join(tempDir, ".claude", "skill-manifest.json"))
+	if err != nil {
+		t.Fatalf("readManifestSkills() error = %v", err)
+	}
+
+	wantSkills := []string{"golang/golang-cli", "productivity/mise"}
+	if !equalStrings(skills, wantSkills) {
+		t.Fatalf("manifest skills = %#v, want %#v", skills, wantSkills)
+	}
+}
+
+func TestInitializerContinuesWhenNoManifestSkillsCanBeInitialized(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		failRun: func(_ string, command string, args []string) error {
+			if command != "instill" {
+				return nil
+			}
+			return errors.New("permission denied")
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {
+			Data: []byte("{\"skills\":[\"superpowers/executing-plans\",\"productivity/mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	if hasStep(runner.steps, "instill check-skills") {
+		t.Fatalf("instill check-skills should be skipped when no skills can be initialized: %#v", runner.stepNames())
+	}
+
+	skills, err := readManifestSkillsAllowEmpty(filepath.Join(tempDir, ".claude", "skill-manifest.json"))
+	if err != nil {
+		t.Fatalf("readManifestSkillsAllowEmpty() error = %v", err)
+	}
+	if len(skills) != 0 {
+		t.Fatalf("manifest skills = %#v, want empty after all instill init attempts fail", skills)
+	}
+}
+
 func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
 	t.Parallel()
 
@@ -339,6 +465,7 @@ type recordingRunner struct {
 	failStep  string
 	steps     []recordedStep
 	afterStep func(dir string, step string, command string, args ...string) error
+	failRun   func(step string, command string, args []string) error
 }
 
 type recordedStep struct {
@@ -349,6 +476,11 @@ type recordedStep struct {
 
 func (r *recordingRunner) Run(_ context.Context, dir string, step string, command string, args ...string) error {
 	r.steps = append(r.steps, recordedStep{name: step, command: command, args: args})
+	if r.failRun != nil {
+		if err := r.failRun(step, command, args); err != nil {
+			return err
+		}
+	}
 	if step == r.failStep {
 		return errors.New("boom")
 	}
@@ -379,4 +511,22 @@ func equalStrings(left, right []string) bool {
 	}
 
 	return true
+}
+
+func hasStep(steps []recordedStep, name string) bool {
+	for _, step := range steps {
+		if step.name == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func lastArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+
+	return args[len(args)-1]
 }
