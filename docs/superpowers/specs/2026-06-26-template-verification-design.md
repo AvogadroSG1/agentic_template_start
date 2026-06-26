@@ -94,12 +94,38 @@ package test
 // Each subtest:
 //   1. t.Parallel()
 //   2. Create t.TempDir()
-//   3. Run: mkproj init --project-name "verify-<stack>" --language <lang>
-//      --project-type <type> --stack <stack> --author-name "CI" 
-//      --author-email "ci@test" --remote none
-//   4. Run: mise install (in scaffolded dir)
-//   5. Run: mise run ci (in scaffolded dir)
-//   6. Assert exit code 0; on failure, log combined stdout+stderr
+//   3. Run: mkproj init (with context.WithTimeout per step)
+//   4. Run: mise install (with context.WithTimeout per step)
+//   5. Run: mise run ci (with context.WithTimeout per step)
+//   6. On failure: t.Fatalf with step prefix, command string, exit code
+//      (via errors.As(*exec.ExitError)), full output, and directory listing
+
+// Per-step timeout for subprocess calls. The global test -timeout is a safety
+// net; per-step timeouts provide diagnostic clarity (which step hung).
+const stepTimeout = 5 * time.Minute
+
+// runStep executes a command with context timeout and structured failure output.
+// On failure it logs: step name, command string, exit code, combined output,
+// and the scaffolded directory tree (for CI debuggability on ephemeral runners).
+func runStep(t *testing.T, name string, dir string, command string, args ...string) {
+    t.Helper()
+    ctx, cancel := context.WithTimeout(context.Background(), stepTimeout)
+    defer cancel()
+
+    cmd := exec.CommandContext(ctx, command, args...)
+    cmd.Dir = dir
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        var exitErr *exec.ExitError
+        exitCode := -1
+        if errors.As(err, &exitErr) {
+            exitCode = exitErr.ExitCode()
+        }
+        tree, _ := exec.Command("find", dir, "-type", "f").Output()
+        t.Fatalf("%s: exit %d (cmd: %s)\n%s\n--- directory tree ---\n%s",
+            name, exitCode, cmd.String(), output, tree)
+    }
+}
 ```
 
 ### Stack Table
@@ -137,21 +163,51 @@ GOCACHE=$PWD/.cache/go-build go test -tags=integration -count=1 -timeout=20m \
 var mkprojBinary string
 
 func TestMain(m *testing.M) {
-    // Build mkproj once into a temp directory
-    // Set mkprojBinary to the absolute path
-    // Run tests
-    // Clean up
-    os.Exit(m.Run())
+    // Build mkproj into a temp directory.
+    // On build failure: log to stderr with context and os.Exit(1) immediately.
+    // Build failures are precondition failures, not test failures —
+    // *testing.T is unavailable here, so fmt.Fprintf(os.Stderr, ...) is used.
+    tmpDir, err := os.MkdirTemp("", "mkproj-verify-*")
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "creating temp dir: %v\n", err)
+        os.Exit(1)
+    }
+
+    binaryPath := filepath.Join(tmpDir, "mkproj")
+    cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/mkproj")
+    if output, err := cmd.CombinedOutput(); err != nil {
+        fmt.Fprintf(os.Stderr, "building mkproj: %v\n%s\n", err, output)
+        os.Exit(1)
+    }
+    mkprojBinary = binaryPath
+
+    // Run all tests, capture exit code, THEN clean up.
+    // os.Exit does not unwind defers — cleanup must be explicit.
+    code := m.Run()
+    os.RemoveAll(tmpDir)
+    os.Exit(code)
 }
 ```
 
 ### Failure Output
 
-On failure, the test MUST log:
-1. The full `mise run ci` stdout+stderr (so the maintainer sees *which* gate
-   failed — fmt, lint, test, or audit)
-2. The scaffolded directory path (for local debugging; temp dirs persist on
-   failure via `t.TempDir()` default behavior on test failure)
+On failure, each step MUST call `t.Fatalf` (not `t.Errorf`) because steps are
+sequential dependencies — if init fails, install cannot succeed. Using `t.Errorf`
+would produce cascading garbage.
+
+Each failure message MUST include:
+1. **Step name prefix** — static string identifying which step failed (e.g.,
+   `"mkproj init:"`, `"mise install:"`, `"mise run ci:"`)
+2. **Command string** — the full command that was run (`cmd.String()`), so
+   failures are reproducible from logs alone
+3. **Exit code** — extracted via `errors.As(*exec.ExitError)` (exit 1 vs 2 vs
+   signal-killed tell different stories)
+4. **Full stdout+stderr** — so the maintainer sees which sub-task failed
+5. **Directory tree** — `find <dir> -type f` output, because on ephemeral CI
+   runners the temp directory is gone after the run. The log IS the only artifact.
+
+Note: `t.TempDir()` persists on failure only when running locally. In CI the
+runner is ephemeral — the directory listing in the log is the debugging tool.
 
 ## CI Workflow: `.github/workflows/verify-templates.yml`
 
@@ -231,13 +287,20 @@ verify-slow: build
    project, not GitHub remote creation. Avoids network dependencies and
    credential requirements in CI.
 
-6. **Timeout of 10 minutes per gate.** `mise install` can be slow on first run
-   (downloading toolchains). 10 minutes is generous but bounded. The slow gate
-   gets 20 minutes for 6 stacks even though they run in parallel (safety margin).
+6. **Two-layer timeouts.** Per-step `context.WithTimeout` (5 minutes) provides
+   diagnostic clarity — you see which step hung and get partial output. The
+   global `-timeout` flag (10m fast, 20m slow) is the safety net that kills the
+   whole binary if multiple steps pile up.
 
 7. **Daily schedule for slow gate.** Running all 6 stacks on every PR is
    wasteful. The fast gate (3 CLI stacks) catches most regressions. The daily
    run catches API-specific drift.
+
+8. **`test/` package lives within the module boundary.** The `test/` directory
+   is a package within the root module (declared in `go.mod`). `go test ./test/`
+   discovers it without a separate `go.mod`. This MUST be verified during
+   implementation — if `./test/` is not resolvable, the Makefile commands fail
+   silently.
 
 ## Verification
 
@@ -250,14 +313,31 @@ verify-slow: build
 
 ## Error Handling
 
-- `mise install` failure → test fails immediately with install output logged.
-  Common cause: network issues or unsupported platform.
-- `mise run ci` failure → test fails with full ci output logged. The output
-  shows which sub-task (fmt, lint, test, audit) failed.
-- `mkproj init` failure → test fails with init output. Indicates a generator
-  bug (not a template bug).
-- Timeout → Go test framework kills the subtest. Indicates a hang in install
-  or a task that never completes.
+Each subprocess call uses `context.WithTimeout` (5 minutes per step) rather than
+relying solely on the global test `-timeout` flag. Rationale: the global timeout
+kills the entire test binary with SIGKILL after a grace period, losing all
+buffered output. Per-step context timeouts let us:
+- Distinguish "mise install hung" from "mise run ci hung"
+- Emit partial output before the step is killed
+- Produce a clear message: `"mise install: context deadline exceeded"`
+
+Failure modes and their meaning:
+
+- **`mkproj init` failure** → generator bug (not a template bug). Exit code and
+  output logged via `t.Fatalf("mkproj init: exit %d ...", ...)`.
+- **`mise install` failure** → toolchain resolution issue (network, unsupported
+  platform, or bad `mise.toml`). Exit code + output logged.
+- **`mise run ci` failure** → template behavioral bug (the thing we're here to
+  catch). Exit code + full output shows which sub-task (fmt, lint, test, audit)
+  failed.
+- **Context deadline exceeded** → a step hung. The per-step timeout fires,
+  `exec.CommandContext` kills the process, and the test logs which step timed out
+  with whatever partial output was captured.
+- **TestMain build failure** → logged to stderr with `fmt.Fprintf` and exits
+  before any tests run. This is a precondition failure, not a test failure.
+
+All failures use `t.Fatalf` to halt the subtest immediately — subsequent steps
+cannot succeed if a prior step failed (init → install → ci is a pipeline).
 
 ## Migration Path
 
