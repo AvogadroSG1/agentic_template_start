@@ -72,6 +72,29 @@ A cross-component coupling whose correctness is owned by **exactly one named tes
 ### Refresh seam
 The specific seam where `.mkproj-overlay/` files layer onto vanilla dirs, checked by `mkproj update` after regenerating vanilla: an **orphan** (overlay file whose vanilla parent dir disappeared) is a **hard fail**; a **collision** (new vanilla file at an overlay-occupied path) is a **loud warn** (overlay-wins composition still yields a correct result). `update` never auto-mutates the overlay. (See ADR-0006.)
 
+### Local-release
+The proof that a scaffolded project works on this machine: lint passes, tests pass, the
+thing runs. Operationally equivalent to `mise run ci` exiting 0 using real tools (not
+stubs). Each stack's overlay MUST define a `ci` task that represents the full local-release
+contract. Distinct from the structural verification (files exist) — local-release proves
+the *code* works; structural tests prove the *repo* is complete.
+
+### Fast gate (template verification)
+Scaffold → `mise install` → local-release for one CLI stack per language (Go CLI, Python
+CLI, C# CLI). Runs in mkproj's own CI and blocks the branch. Proves that the three
+foundational stacks produce working projects on every push.
+
+### Slow gate (template verification)
+Scaffold → `mise install` → local-release for all stacks in the matrix. Runs async out of
+the branch-blocking path. Proves that every shipped stack produces a working project.
+Acceptable tradeoff: API stack breakage is learned late.
+
+### Structural verification
+A test that asserts the composition machinery produces all expected files — including those
+not exercised by local-release (CI config, AGENTS.md, lefthook.yml, etc.). Currently covers
+`go-cli-cobra` as the canary for composition logic. Complements local-release: structure
+proves the repo is *complete*, local-release proves the code *works*.
+
 ---
 
 > **Note on "floor".** The word is used in two distinct senses, deliberately: the **deny floor** (the stable set of *safety* rules the guard blocks) and the **guideline floor** (the *minimum* set of tools an overlay must install). They are unrelated mechanisms that share a metaphor. The PRD's "safety floor" is the deny-floor sense.
