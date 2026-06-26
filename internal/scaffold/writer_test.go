@@ -121,6 +121,7 @@ func TestWriterRendersPythonPackageAndLanguageScopedManifestFromEmbeddedTemplate
 	}
 
 	assertFileContains(t, filepath.Join(tempDir, "pyproject.toml"), `name = "my_cool_api"`)
+	assertFileContains(t, filepath.Join(tempDir, "README.md"), "# My Cool API")
 	assertFileContains(t, filepath.Join(tempDir, "CONTEXT.md"), "# Context")
 	assertFileContains(t, filepath.Join(tempDir, "docs", "adr", "0000-template.md"), "# ADR 0000")
 
