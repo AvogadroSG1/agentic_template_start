@@ -19,5 +19,8 @@ dev = [
   "pytest-mock>=3.14,<4.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
 [project.scripts]
 app = "app.main:main"
