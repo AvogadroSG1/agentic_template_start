@@ -271,7 +271,7 @@ func TestCSharpWebAPIProjectTemplateExcludesTestSourcesFromRootCompile(t *testin
 	}
 }
 
-func TestCSharpWebAPITestProjectReferencesTestHost(t *testing.T) {
+func TestCSharpWebAPITestProjectDoesNotDependOnTestHost(t *testing.T) {
 	repoRoot := repoRoot(t)
 	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
 
@@ -281,8 +281,8 @@ func TestCSharpWebAPITestProjectReferencesTestHost(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	if !strings.Contains(content, `PackageReference Include="Microsoft.AspNetCore.TestHost"`) {
-		t.Fatalf("webapi test project must reference Microsoft.AspNetCore.TestHost:\n%s", content)
+	if strings.Contains(content, `PackageReference Include="Microsoft.AspNetCore.TestHost"`) {
+		t.Fatalf("webapi test project must verify the real app process without Microsoft.AspNetCore.TestHost:\n%s", content)
 	}
 }
 
@@ -394,8 +394,8 @@ func TestCSharpWebAPIWeatherForecastEndpointTestUsesStyleCopFriendlyAsyncPattern
 	if !strings.Contains(content, "/// <returns>A task that completes when the assertion finishes.</returns>") {
 		t.Fatalf("weather forecast endpoint test must document the async return value for StyleCop:\n%s", content)
 	}
-	if !strings.Contains(content, "Program.ConfigureApp(app);") {
-		t.Fatalf("weather forecast endpoint test must exercise the shared app configuration entrypoint:\n%s", content)
+	if !strings.Contains(content, "await Task.Delay(500, cancellationToken);") {
+		t.Fatalf("weather forecast endpoint test must use a bounded readiness pause between probes:\n%s", content)
 	}
 }
 
@@ -424,7 +424,7 @@ func TestCSharpWebAPIProgramTemplateKeepsControllerBasedStarter(t *testing.T) {
 	}
 }
 
-func TestCSharpWebAPIWeatherForecastEndpointTestUsesTestServerClient(t *testing.T) {
+func TestCSharpWebAPIWeatherForecastEndpointTestUsesRealAppProcessProbe(t *testing.T) {
 	repoRoot := repoRoot(t)
 	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
 
@@ -435,15 +435,17 @@ func TestCSharpWebAPIWeatherForecastEndpointTestUsesTestServerClient(t *testing.
 
 	content := string(contentBytes)
 	for _, snippet := range []string{
-		"using Microsoft.AspNetCore.TestHost;",
-		"var builder = Program.CreateBuilder(Array.Empty<string>());",
-		"builder.WebHost.UseTestServer();",
-		"Program.ConfigureApp(app);",
-		"using var client = app.GetTestClient();",
-		"\"/WeatherForecast\"",
+		"using System.Diagnostics;",
+		"using System.Net.Sockets;",
+		"ASPNETCORE_URLS",
+		"dotnet",
+		"run",
+		"127.0.0.1",
+		"Weatherforecast",
+		"UseCookies = false",
 	} {
 		if !strings.Contains(content, snippet) {
-			t.Fatalf("weather forecast endpoint test missing test-server verification snippet %q:\n%s", snippet, content)
+			t.Fatalf("weather forecast endpoint test missing real-process verification snippet %q:\n%s", snippet, content)
 		}
 	}
 }
