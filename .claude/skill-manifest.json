@@ -44,6 +44,7 @@
     "superpowers/using-git-worktrees",
     "superpowers/using-superpowers",
     "superpowers/verification-before-completion",
-    "superpowers/writing-plans"
+    "superpowers/writing-plans",
+    "testing/e2e-testing-patterns"
   ]
 }
