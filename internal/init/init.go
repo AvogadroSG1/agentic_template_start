@@ -53,7 +53,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		args    []string
 	}{
 		{name: "bd init", command: "bd", args: []string{"init"}},
-		{name: "mise trust", command: "mise", args: []string{"trust"}},
+		{name: "mise trust", command: "mise", args: []string{"trust", "--all"}},
 		{name: "mise install", command: "mise", args: []string{"install"}},
 		{name: "lefthook install", command: "mise", args: []string{"exec", "--", "lefthook", "install", "--force"}},
 	}

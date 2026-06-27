@@ -34,9 +34,10 @@ func (v *VerboseRunner) Run(ctx context.Context, dir string, step string, comman
 		return fmt.Errorf("%s: %w", step, err)
 	}
 
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmdEnv := commandEnv(dir, step, command)
+	cmd := exec.CommandContext(ctx, resolveCommandPathForEnv(command, cmdEnv), args...)
 	cmd.Dir = dir
-	cmd.Env = commandEnv(dir, step, command)
+	cmd.Env = cmdEnv
 
 	lw := &lineWriter{out: v.out}
 	cmd.Stdout = lw
@@ -47,7 +48,7 @@ func (v *VerboseRunner) Run(ctx context.Context, dir string, step string, comman
 
 	if err != nil {
 		fmt.Fprintf(v.out, "→ %s ✗ (%.1fs)\n", step, elapsed.Seconds())
-		return fmt.Errorf("%s: %w", step, err)
+		return fmt.Errorf("%s: %w (resolved command: %s, PATH=%q)", step, err, cmd.Path, envValue(cmd.Env, "PATH"))
 	}
 
 	if v.isTTY && lw.lines > 0 {

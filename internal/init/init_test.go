@@ -68,6 +68,7 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang/golang-cli,productivity/mise")
+	assertRecordedStepArgs(t, runner.steps, "mise trust", "trust", "--all")
 }
 
 func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
