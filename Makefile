@@ -5,7 +5,7 @@ BINDIR ?= $(HOME)/.local/bin
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build test install uninstall clean
+.PHONY: help build test install uninstall clean verify-fast verify-slow
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -28,3 +28,12 @@ uninstall: ## Remove installed mkproj from BINDIR
 
 clean: ## Remove local build outputs
 	rm -rf $(BIN_DIR)
+
+verify-fast: build ## Run fast-gate template verification (CLI stacks only)
+	GOCACHE=$(CURDIR)/.cache/go-build go test -tags=integration -count=1 \
+		-timeout=10m \
+		-run "TestLocalRelease/(go-cli-cobra|python-cli-typer|csharp-cli)" ./test/
+
+verify-slow: build ## Run slow-gate template verification (all stacks)
+	GOCACHE=$(CURDIR)/.cache/go-build go test -tags=integration -count=1 \
+		-timeout=20m -run "TestLocalRelease" ./test/

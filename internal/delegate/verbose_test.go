@@ -3,6 +3,8 @@ package delegate
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -109,5 +111,35 @@ func TestVerboseRunnerTTYEraseWithNoOutput(t *testing.T) {
 	}
 	if !strings.Contains(output, "→ silent step ✓") {
 		t.Fatalf("output missing success summary, got: %q", output)
+	}
+}
+
+func TestVerboseRunnerUsesFallbackExecutableWhenPATHMissesCommand(t *testing.T) {
+	fallbackRoot := t.TempDir()
+	fallbackMise := filepath.Join(fallbackRoot, "mise")
+	if err := os.WriteFile(fallbackMise, []byte("#!/bin/sh\necho fallback-mise\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(%s) error = %v", fallbackMise, err)
+	}
+
+	previous := fallbackExecutableCandidates
+	fallbackExecutableCandidates = map[string][]string{
+		"mise": {fallbackMise},
+	}
+	t.Cleanup(func() {
+		fallbackExecutableCandidates = previous
+	})
+
+	t.Setenv("PATH", "/usr/bin")
+
+	var buf bytes.Buffer
+	runner := &VerboseRunner{out: &buf, isTTY: false}
+
+	if err := runner.Run(context.Background(), t.TempDir(), "mise version", "mise"); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "fallback-mise") {
+		t.Fatalf("output missing fallback executable output, got: %q", output)
 	}
 }

@@ -1,0 +1,39 @@
+name: Verify Templates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  fast-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: jdx/mise-action@v2
+      - run: make verify-fast
+
+  slow-gate:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [go-cli-cobra, python-cli-typer, csharp-cli, go-api-chi, python-fastapi, csharp-webapi]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: jdx/mise-action@v2
+      - run: >
+          GOCACHE=$GITHUB_WORKSPACE/.cache/go-build
+          go test -tags=integration -count=1 -timeout=10m
+          -run "TestLocalRelease/${{ matrix.stack }}" ./test/

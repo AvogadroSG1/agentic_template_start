@@ -45,6 +45,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	if err != nil {
 		return failWithRecovery(targetDir, "skill manifest read", err)
 	}
+	manifestPath := filepath.Join(targetDir, ".claude", "skill-manifest.json")
 
 	steps := []struct {
 		name    string
@@ -52,9 +53,7 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		args    []string
 	}{
 		{name: "bd init", command: "bd", args: []string{"init"}},
-		{name: "instill init", command: "instill", args: []string{"init", "--force", "--skills", strings.Join(skills, ",")}},
-		{name: "instill check-skills", command: "instill", args: []string{"check-skills"}},
-		{name: "mise trust", command: "mise", args: []string{"trust"}},
+		{name: "mise trust", command: "mise", args: []string{"trust", "--all"}},
 		{name: "mise install", command: "mise", args: []string{"install"}},
 		{name: "lefthook install", command: "mise", args: []string{"exec", "--", "lefthook", "install", "--force"}},
 	}
@@ -62,6 +61,17 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 	for _, step := range steps {
 		if err := i.Runner.Run(ctx, targetDir, step.name, step.command, step.args...); err != nil {
 			return failWithRecovery(targetDir, step.name, err)
+		}
+		if step.name == "bd init" {
+			initializedSkills, err := runInstillInit(ctx, i.Runner, targetDir, manifestPath, skills)
+			if err != nil {
+				return failWithRecovery(targetDir, "instill init", err)
+			}
+			if len(initializedSkills) > 0 {
+				if err := i.Runner.Run(ctx, targetDir, "instill check-skills", "instill", "check-skills"); err != nil {
+					return failWithRecovery(targetDir, "instill check-skills", err)
+				}
+			}
 		}
 		if step.name == "mise install" {
 			switch vars.Language {
@@ -98,6 +108,18 @@ type skillManifest struct {
 }
 
 func readManifestSkills(path string) ([]string, error) {
+	manifest, err := readManifestSkillsAllowEmpty(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(manifest) == 0 {
+		return nil, fmt.Errorf("skill manifest is empty")
+	}
+
+	return manifest, nil
+}
+
+func readManifestSkillsAllowEmpty(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -108,11 +130,44 @@ func readManifestSkills(path string) ([]string, error) {
 		return nil, fmt.Errorf("parse skill manifest: %w", err)
 	}
 
-	if len(manifest.Skills) == 0 {
-		return nil, fmt.Errorf("skill manifest is empty")
+	return manifest.Skills, nil
+}
+
+func writeManifestSkills(path string, skills []string) error {
+	data, err := json.MarshalIndent(skillManifest{Skills: skills}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal skill manifest: %w", err)
 	}
 
-	return manifest.Skills, nil
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write skill manifest: %w", err)
+	}
+
+	return nil
+}
+
+func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir string, manifestPath string, skills []string) ([]string, error) {
+	if err := runner.Run(ctx, targetDir, "instill init", "instill", "init", "--force", "--skills", strings.Join(skills, ",")); err == nil {
+		return skills, nil
+	} else if len(skills) == 1 {
+		return nil, err
+	} else {
+		initialized := make([]string, 0, len(skills))
+		for _, skill := range skills {
+			stepName := fmt.Sprintf("instill init (%s)", skill)
+			if skillErr := runner.Run(ctx, targetDir, stepName, "instill", "init", "--force", "--skills", skill); skillErr != nil {
+				continue
+			}
+			initialized = append(initialized, skill)
+		}
+
+		if err := writeManifestSkills(manifestPath, initialized); err != nil {
+			return nil, err
+		}
+
+		return initialized, nil
+	}
 }
 
 func repairBeadsHookChain(targetDir string) error {

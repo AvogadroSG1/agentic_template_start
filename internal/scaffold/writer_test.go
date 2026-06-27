@@ -162,6 +162,45 @@ func TestWriterRendersCSharpNamespaceIntoProjectFile(t *testing.T) {
 	assertFileContains(t, projectFile, "<RootNamespace>MyCoolApi</RootNamespace>")
 }
 
+func TestWriterAllowsGitDirectoryFromPreinitializedRepo(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempDir, ".git"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(.git) error = %v", err)
+	}
+
+	assets := fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":                  {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":                  {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/skill-manifest.json.tmpl": {Data: []byte("{\"skills\":[\"productivity/mise\"]}\n")},
+		"templates/common/claude/hooks/secret-scan.sh":     {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":                {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":                 {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":       {Data: []byte("package main\n")},
+	}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: assets}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	assertFileContains(t, filepath.Join(tempDir, "AGENTS.md"), "Project Sample App")
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 

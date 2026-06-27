@@ -94,6 +94,7 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 			files: []string{
 				"templates/golden/csharp-cli/Project.csproj.tmpl",
 				"templates/golden/csharp-cli/Program.cs",
+				"templates/golden/csharp-cli/GreetingBuilder.cs",
 				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
 				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/ProgramTests.cs",
 			},
@@ -103,8 +104,10 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 			files: []string{
 				"templates/golden/csharp-webapi/Project.csproj.tmpl",
 				"templates/golden/csharp-webapi/Program.cs",
+				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
+				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
 				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/HealthEndpointTests.cs",
+				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
 			},
 		},
 	}
@@ -123,6 +126,393 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				}
 			}
 		})
+	}
+}
+
+func TestCSharpCLIProgramPlacesTopLevelStatementsBeforeTypeDeclarations(t *testing.T) {
+	repoRoot := repoRoot(t)
+	programPath := filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Program.cs")
+
+	contentBytes, err := os.ReadFile(programPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", programPath, err)
+	}
+
+	content := string(contentBytes)
+	topLevelIndex := strings.Index(content, "var target =")
+	typeIndex := strings.Index(content, "public static class GreetingBuilder")
+	if topLevelIndex == -1 {
+		t.Fatalf("program missing expected snippets:\n%s", content)
+	}
+	if typeIndex == -1 {
+		return
+	}
+	if topLevelIndex > typeIndex {
+		t.Fatalf("top-level statements must precede type declarations:\n%s", content)
+	}
+}
+
+func TestCSharpCLIProjectTemplateExcludesTestSourcesFromRootCompile(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Project.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, `<Compile Remove="tests/**/*.cs" />`) {
+		t.Fatalf("project template must exclude test sources from root compile:\n%s", content)
+	}
+}
+
+func TestCSharpCLIStarterFilesCarryStyleCopFileHeaders(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Program.cs"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "ProgramTests.cs"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, `<copyright file=`) {
+			t.Fatalf("%s missing StyleCop file header:\n%s", path, content)
+		}
+	}
+}
+
+func TestCSharpCLIProjectFilesSuppressStyleCopHeaderMismatchRule(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Project.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, "SA1636") {
+			t.Fatalf("%s missing SA1636 suppression:\n%s", path, content)
+		}
+	}
+}
+
+func TestCSharpCLIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Project.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, "<GenerateDocumentationFile>true</GenerateDocumentationFile>") {
+			t.Fatalf("%s must enable XML documentation output so StyleCop XML analysis can run:\n%s", path, content)
+		}
+	}
+}
+
+func TestPythonCLITyperStarterTestInvokesHelloSubcommand(t *testing.T) {
+	repoRoot := repoRoot(t)
+	mainPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", "src", "app", "main.py")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", ".mkproj-overlay", "tests", "test_cli.py")
+
+	mainBytes, err := os.ReadFile(mainPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", mainPath, err)
+	}
+
+	testBytes, err := os.ReadFile(testPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", testPath, err)
+	}
+
+	mainContent := string(mainBytes)
+	testContent := string(testBytes)
+	if strings.Contains(mainContent, `def hello(name: str = "world")`) &&
+		!strings.Contains(testContent, `runner.invoke(app, ["--name", "Peter"])`) {
+		t.Fatalf("python-cli-typer starter test must pass the defaulted Typer parameter as an option:\n%s", testContent)
+	}
+}
+
+func TestCSharpWebAPIProjectTemplateExcludesTestSourcesFromRootCompile(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, `<Compile Remove="tests/**/*.cs" />`) {
+		t.Fatalf("webapi project template must exclude test sources from root compile:\n%s", content)
+	}
+	if !strings.Contains(content, `<Content Remove="tests/**" />`) {
+		t.Fatalf("webapi project template must exclude test artifacts from web content discovery:\n%s", content)
+	}
+}
+
+func TestCSharpWebAPITestProjectDoesNotDependOnTestHost(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if strings.Contains(content, `PackageReference Include="Microsoft.AspNetCore.TestHost"`) {
+		t.Fatalf("webapi test project must verify the real app process without Microsoft.AspNetCore.TestHost:\n%s", content)
+	}
+}
+
+func TestCSharpWebAPIStarterFilesCarryStyleCopFileHeaders(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Program.cs"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "WeatherForecast.cs.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Controllers", "WeatherForecastController.cs.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, `<copyright file=`) {
+			t.Fatalf("%s missing StyleCop file header:\n%s", path, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, "<GenerateDocumentationFile>true</GenerateDocumentationFile>") {
+			t.Fatalf("%s must enable XML documentation output so StyleCop XML analysis can run:\n%s", path, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIProjectTemplatePinsSwaggerDependencyForStarterProgram(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, `PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"`) {
+		t.Fatalf("webapi project template must pin the swagger dependency used by the starter program:\n%s", content)
+	}
+}
+
+func TestCSharpWebAPIProjectFilesSuppressStyleCopHeaderMismatchRule(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, "SA1636") {
+			t.Fatalf("%s missing SA1636 suppression:\n%s", path, content)
+		}
+	}
+}
+
+func TestCSharpWebAPITestProjectEnablesImplicitUsings(t *testing.T) {
+	repoRoot := repoRoot(t)
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
+
+	contentBytes, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", projectPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, "<ImplicitUsings>enable</ImplicitUsings>") {
+		t.Fatalf("webapi test project must enable implicit usings for starter async tests:\n%s", content)
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastEndpointTestUsesStyleCopFriendlyAsyncPattern(t *testing.T) {
+	repoRoot := repoRoot(t)
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
+
+	contentBytes, err := os.ReadFile(testPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", testPath, err)
+	}
+
+	content := string(contentBytes)
+	if !strings.Contains(content, "/// <returns>A task that completes when the assertion finishes.</returns>") {
+		t.Fatalf("weather forecast endpoint test must document the async return value for StyleCop:\n%s", content)
+	}
+	if !strings.Contains(content, "await Task.Delay(500, cancellationToken);") {
+		t.Fatalf("weather forecast endpoint test must use a bounded readiness pause between probes:\n%s", content)
+	}
+}
+
+func TestCSharpWebAPIProgramTemplateKeepsControllerBasedStarter(t *testing.T) {
+	repoRoot := repoRoot(t)
+	programPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Program.cs")
+
+	contentBytes, err := os.ReadFile(programPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", programPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"var builder = Program.CreateBuilder(args);",
+		"builder.Services.AddControllers();",
+		"var app = builder.Build();",
+		"Program.ConfigureApp(app);",
+		"app.MapControllers();",
+		"public static WebApplicationBuilder CreateBuilder(string[] args)",
+		"public static void ConfigureApp(WebApplication app)",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("program template missing controller-based webapi starter snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastEndpointTestUsesRealAppProcessProbe(t *testing.T) {
+	repoRoot := repoRoot(t)
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
+
+	contentBytes, err := os.ReadFile(testPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", testPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"using System.Diagnostics;",
+		"using System.Net.Sockets;",
+		"ASPNETCORE_URLS",
+		"dotnet",
+		"run",
+		"127.0.0.1",
+		"Weatherforecast",
+		"UseCookies = false",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("weather forecast endpoint test missing real-process verification snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastModelUsesTemplateNamespace(t *testing.T) {
+	repoRoot := repoRoot(t)
+	modelPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "WeatherForecast.cs.tmpl")
+
+	contentBytes, err := os.ReadFile(modelPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", modelPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"namespace {{.CSharpNamespace}};",
+		"public sealed class WeatherForecast",
+		"public int TemperatureF => 32 + (int)(this.TemperatureC / 0.5556);",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("weather forecast model missing snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestCSharpWebAPIWeatherForecastControllerExposesControllerRoute(t *testing.T) {
+	repoRoot := repoRoot(t)
+	controllerPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Controllers", "WeatherForecastController.cs.tmpl")
+
+	contentBytes, err := os.ReadFile(controllerPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", controllerPath, err)
+	}
+
+	content := string(contentBytes)
+	for _, snippet := range []string{
+		"namespace {{.CSharpNamespace}}.Controllers",
+		"using Microsoft.AspNetCore.Mvc;",
+		"[ApiController]",
+		"[Route(\"[controller]\")]",
+		"[HttpGet(Name = \"GetWeatherForecast\")]",
+		"Enumerable.Range(1, 5)",
+	} {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("weather forecast controller missing snippet %q:\n%s", snippet, content)
+		}
+	}
+}
+
+func TestGoAPIChiPinsPatchedGoToolchainForVulnerabilityGate(t *testing.T) {
+	repoRoot := repoRoot(t)
+
+	files := []string{
+		filepath.Join(repoRoot, "templates", "golden", "go-api-chi", "go.mod.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "go-api-chi", ".mkproj-overlay", "mise.toml"),
+	}
+
+	for _, path := range files {
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+
+		content := string(contentBytes)
+		if !strings.Contains(content, "1.26.4") {
+			t.Fatalf("%s must pin a Go patch release that satisfies the vulnerability gate:\n%s", path, content)
+		}
 	}
 }
 

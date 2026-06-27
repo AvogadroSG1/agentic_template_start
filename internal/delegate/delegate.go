@@ -13,11 +13,17 @@ type Runner interface {
 type ExecRunner struct{}
 
 func (ExecRunner) Run(ctx context.Context, dir string, step string, command string, args ...string) error {
-	cmd := exec.CommandContext(ctx, command, args...)
+	if err := prepareCommandEnv(dir, step, command); err != nil {
+		return fmt.Errorf("%s: %w", step, err)
+	}
+
+	cmdEnv := commandEnv(dir, step, command)
+	cmd := exec.CommandContext(ctx, resolveCommandPathForEnv(command, cmdEnv), args...)
 	cmd.Dir = dir
+	cmd.Env = cmdEnv
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s: %w: %s", step, err, string(output))
+		return fmt.Errorf("%s: %w (resolved command: %s, PATH=%q): %s", step, err, cmd.Path, envValue(cmd.Env, "PATH"), string(output))
 	}
 
 	return nil

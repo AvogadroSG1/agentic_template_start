@@ -1,0 +1,60 @@
+// <copyright file="WeatherForecastController.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+namespace {{.CSharpNamespace}}.Controllers
+{
+    using Microsoft.AspNetCore.Mvc;
+
+    /// <summary>
+    /// Serves weather forecast samples from the starter API.
+    /// </summary>
+    [ApiController]
+    [Route("[controller]")]
+    public sealed class WeatherForecastController : ControllerBase
+    {
+        private static readonly string[] Summaries =
+        {
+            "Freezing",
+            "Bracing",
+            "Chilly",
+            "Cool",
+            "Mild",
+            "Warm",
+            "Balmy",
+            "Hot",
+            "Sweltering",
+            "Scorching",
+        };
+
+        private readonly ILogger<WeatherForecastController> logger;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="WeatherForecastController"/> class.
+        /// </summary>
+        /// <param name="logger">The logger for controller events.</param>
+        public WeatherForecastController(ILogger<WeatherForecastController> logger)
+        {
+            this.logger = logger;
+        }
+
+        /// <summary>
+        /// Returns forecast samples for the next five days.
+        /// </summary>
+        /// <returns>The generated weather forecast samples.</returns>
+        [HttpGet(Name = "GetWeatherForecast")]
+        public IEnumerable<WeatherForecast> Get()
+        {
+            this.logger.LogInformation("Serving starter weather forecast data.");
+
+            return Enumerable.Range(1, 5)
+                .Select(index => new WeatherForecast
+                {
+                    Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+                    TemperatureC = Random.Shared.Next(-20, 55),
+                    Summary = Summaries[Random.Shared.Next(Summaries.Length)],
+                })
+                .ToArray();
+        }
+    }
+}

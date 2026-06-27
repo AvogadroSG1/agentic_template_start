@@ -92,8 +92,10 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			files: []string{
 				"templates/golden/csharp-webapi/Project.csproj.tmpl",
 				"templates/golden/csharp-webapi/.mkproj-overlay/mise.toml",
+				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
+				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
 				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/HealthEndpointTests.cs",
+				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
 			},
 		},
 	}
