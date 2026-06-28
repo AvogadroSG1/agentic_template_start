@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -24,8 +23,14 @@ import (
 	updatepkg "mkproj/internal/update"
 )
 
+var errCancelled = errors.New("cancelled")
+
 func main() {
 	if err := run(os.Args[1:], mkproj.Assets()); err != nil {
+		if errors.Is(err, errCancelled) {
+			fmt.Fprintln(os.Stderr, "cancelled")
+			return
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -34,16 +39,23 @@ func main() {
 func run(args []string, assets fs.FS) error {
 	command, args := selectCommand(args)
 
+	var err error
 	switch command {
 	case "init":
-		return runInit(args, assets)
+		err = runInit(args, assets)
 	case "sync-allowlist":
-		return runSyncAllowlist(args, assets)
+		err = runSyncAllowlist(args, assets)
 	case "update":
-		return runUpdate(args, assets)
+		err = runUpdate(args, assets)
 	default:
 		return fmt.Errorf("unsupported command %q", command)
 	}
+
+	if isUserAbort(err) {
+		return errCancelled
+	}
+
+	return err
 }
 
 func selectCommand(args []string) (string, []string) {
@@ -80,7 +92,7 @@ func runInit(args []string, assets fs.FS) error {
 	var prompter prompt.Prompter
 	inputs.IsTTY = isInteractiveSession()
 	if inputs.IsTTY {
-		prompter = terminalPrompter{reader: bufio.NewReader(os.Stdin), out: os.Stdout}
+		prompter = terminalPrompter{}
 	}
 
 	resolved, err := prompt.Resolve(inputs, prompter)
@@ -197,10 +209,7 @@ func isInteractiveSession() bool {
 	return (stdinInfo.Mode()&os.ModeCharDevice) != 0 && (stdoutInfo.Mode()&os.ModeCharDevice) != 0
 }
 
-type terminalPrompter struct {
-	reader *bufio.Reader
-	out    io.Writer
-}
+type terminalPrompter struct{}
 
 func (p terminalPrompter) Ask(_ string, label string, choices []string, defaultValue string) (string, error) {
 	if len(choices) > 0 {
@@ -233,23 +242,27 @@ func (p terminalPrompter) askSelect(label string, choices []string, defaultValue
 }
 
 func (p terminalPrompter) askText(label string, defaultValue string) (string, error) {
-	promptText := label
-	if defaultValue != "" {
-		promptText += " (default: " + defaultValue + ")"
-	}
-	promptText += ": "
+	value := defaultValue
+	input := huh.NewInput().
+		Title(label).
+		Value(&value)
 
-	if _, err := io.WriteString(p.out, promptText); err != nil {
+	form := huh.NewForm(huh.NewGroup(input))
+	if err := form.Run(); err != nil {
 		return "", err
 	}
-	line, err := p.reader.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	line = strings.TrimSpace(line)
-	if line == "" {
+
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
 		return defaultValue, nil
 	}
 
-	return line, nil
+	return trimmed, nil
+}
+
+func isUserAbort(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, huh.ErrUserAborted)
 }
