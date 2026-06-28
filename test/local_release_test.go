@@ -172,6 +172,9 @@ func tempRuntimeDir(t *testing.T) string {
 			if walkErr != nil {
 				return nil
 			}
+			if d.Type()&fs.ModeSymlink != 0 {
+				return nil
+			}
 			mode := os.FileMode(0o644)
 			if d.IsDir() {
 				mode = 0o755
