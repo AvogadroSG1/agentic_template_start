@@ -131,6 +131,35 @@ func TestConformanceIgnoresVettedExtrasOutsideTheGuidelineFloor(t *testing.T) {
 	}
 }
 
+func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("user home dir: %v", err)
+	}
+
+	for _, tc := range []struct {
+		language string
+		file     string
+	}{
+		{"typescript", "typescript.md"},
+		{"rust", "rust.md"},
+		{"bash", "bash.md"},
+	} {
+		t.Run(tc.language, func(t *testing.T) {
+			path := filepath.Join(homeDir, "peter_code", "ai_support", "guidelines", tc.file)
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("guideline file missing: %s", path)
+			}
+			if info.Size() < 100 {
+				t.Fatalf("guideline file %s is suspiciously small (%d bytes)", path, info.Size())
+			}
+		})
+	}
+}
+
 func TestShippedTemplateWithoutGuidelineBackedLanguageFails(t *testing.T) {
 	checker := newGuidelineChecker(t)
 

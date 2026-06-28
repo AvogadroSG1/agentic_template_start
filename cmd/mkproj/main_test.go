@@ -1,14 +1,83 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/huh"
+
 	"mkproj"
+	"mkproj/internal/prompt"
 )
+
+func TestTerminalPrompterImplementsPrompterWithoutBufioFields(t *testing.T) {
+	t.Parallel()
+
+	p := terminalPrompter{}
+	var iface prompt.Prompter = p
+	_ = iface
+}
+
+func TestIsUserAbortDetectsHuhAbortError(t *testing.T) {
+	t.Parallel()
+
+	if !isUserAbort(huh.ErrUserAborted) {
+		t.Fatal("isUserAbort(huh.ErrUserAborted) = false, want true")
+	}
+	if isUserAbort(fmt.Errorf("some other error")) {
+		t.Fatal("isUserAbort(other) = true, want false")
+	}
+	if isUserAbort(nil) {
+		t.Fatal("isUserAbort(nil) = true, want false")
+	}
+}
+
+func TestRunInitReturnsErrCancelledOnUserAbort(t *testing.T) {
+	t.Parallel()
+
+	err := runInit([]string{
+		"--project-name", "Test",
+		"--language", "go",
+		"--project-type", "cli",
+	}, mkproj.Assets())
+
+	if err == nil {
+		t.Fatal("runInit() should fail when stack is missing in non-TTY mode")
+	}
+	if isUserAbort(err) {
+		t.Fatal("non-TTY missing flag should not be a user abort")
+	}
+	if !strings.Contains(err.Error(), "missing required flag") {
+		t.Fatalf("runInit() error = %q, want missing required flag", err)
+	}
+}
+
+func TestRunReturnsErrCancelledWhenUserAborts(t *testing.T) {
+	t.Parallel()
+
+	err := run([]string{"init", "--project-name", "Test"}, mkproj.Assets())
+	if err == nil {
+		t.Fatal("run() should return error for missing flags in non-TTY")
+	}
+
+	if errors.Is(err, errCancelled) {
+		t.Fatal("missing flag error should not be errCancelled")
+	}
+}
+
+func TestIsUserAbortWrappedErrorStillDetected(t *testing.T) {
+	t.Parallel()
+
+	wrapped := fmt.Errorf("prompt failed: %w", huh.ErrUserAborted)
+	if !isUserAbort(wrapped) {
+		t.Fatal("isUserAbort(wrapped huh.ErrUserAborted) = false, want true")
+	}
+}
 
 func TestSelectCommandDefaultsToInit(t *testing.T) {
 	t.Parallel()
