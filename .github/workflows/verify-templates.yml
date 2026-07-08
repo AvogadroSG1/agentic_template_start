@@ -19,7 +19,17 @@ jobs:
           go-version-file: go.mod
       - uses: jdx/mise-action@v2
       - name: Install bd (beads)
-        run: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+        env:
+          BEADS_VERSION: 1.1.0
+          BEADS_SHA256: b0f3dd607c3fb989ee08d0a6854fba80d0402971eb108f9af6170bc14d491a34
+        run: |
+          curl -fsSL -o /tmp/beads.tar.gz "https://github.com/steveyegge/beads/releases/download/v${BEADS_VERSION}/beads_${BEADS_VERSION}_linux_amd64.tar.gz"
+          echo "${BEADS_SHA256}  /tmp/beads.tar.gz" | sha256sum -c -
+          extract_dir=$(mktemp -d)
+          tar -xzf /tmp/beads.tar.gz -C "$extract_dir"
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 "$(find "$extract_dir" -type f -name bd | head -n 1)" "$HOME/.local/bin/bd"
+          bd version
       - run: make verify-fast
 
   slow-gate:
@@ -36,7 +46,17 @@ jobs:
           go-version-file: go.mod
       - uses: jdx/mise-action@v2
       - name: Install bd (beads)
-        run: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+        env:
+          BEADS_VERSION: 1.1.0
+          BEADS_SHA256: b0f3dd607c3fb989ee08d0a6854fba80d0402971eb108f9af6170bc14d491a34
+        run: |
+          curl -fsSL -o /tmp/beads.tar.gz "https://github.com/steveyegge/beads/releases/download/v${BEADS_VERSION}/beads_${BEADS_VERSION}_linux_amd64.tar.gz"
+          echo "${BEADS_SHA256}  /tmp/beads.tar.gz" | sha256sum -c -
+          extract_dir=$(mktemp -d)
+          tar -xzf /tmp/beads.tar.gz -C "$extract_dir"
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 "$(find "$extract_dir" -type f -name bd | head -n 1)" "$HOME/.local/bin/bd"
+          bd version
       - run: >
           GOCACHE=$GITHUB_WORKSPACE/.cache/go-build
           go test -tags=integration -count=1 -timeout=10m

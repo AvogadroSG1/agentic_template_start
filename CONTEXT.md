@@ -20,7 +20,7 @@ The curated set of Bash command prefixes the author has vetted as safe to run wi
 The small, stable, safety-oriented set of rules that block irreversible or dangerous commands. Enforced by the guard hook. Rarely changes. Distinct from the allowlist; shares a single canonical source file (different sections) but refreshes on its own cadence.
 
 ### Managed block
-A delimited region (`<!-- BEGIN FORGE ALLOW v:N --> … <!-- END --> `) that the reconciler may rewrite in place, leaving surrounding hand-edited content untouched. Mirrors the existing beads integration block in `AGENTS.md`.
+A delimited region (`// BEGIN FORGE ALLOW v:N` … `// END FORGE ALLOW` entries in `.claude/settings.local.json`) that the reconciler may rewrite in place, leaving surrounding hand-edited content untouched. Mirrors the existing beads integration block in `AGENTS.md`.
 
 ### Reconciler
 A `forge` subcommand (`sync-allowlist`) that rewrites a project's managed block from the canonical embedded source. Triggered notify-only: a SessionStart hook detects staleness and prompts the author to run it; it never auto-mutates the repo.
