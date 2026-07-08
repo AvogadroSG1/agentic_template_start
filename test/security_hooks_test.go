@@ -25,7 +25,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "./.claude/hooks/guard"`,
 				`"command": "bd prime || true"`,
 				`"command": "instill check-skills || true"`,
-				`"command": "command -v mkproj >/dev/null 2>&1 && mkproj sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
 			},
 		},
 		{
@@ -35,7 +35,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "./.claude/hooks/guard"`,
 				`"command": "bd prime || true"`,
 				`"command": "instill check-skills || true"`,
-				`"command": "command -v mkproj >/dev/null 2>&1 && mkproj sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
 			},
 		},
 		{
@@ -45,7 +45,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "./.claude/hooks/guard"`,
 				`"command": "bd prime || true"`,
 				`"command": "instill check-skills || true"`,
-				`"command": "command -v mkproj >/dev/null 2>&1 && mkproj sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
 			},
 		},
 		{
@@ -55,7 +55,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "./.claude/hooks/guard"`,
 				`"command": "bd prime || true"`,
 				`"command": "instill check-skills || true"`,
-				`"command": "command -v mkproj >/dev/null 2>&1 && mkproj sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
 			},
 		},
 	}

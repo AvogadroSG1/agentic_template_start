@@ -10,7 +10,7 @@ import (
 func TestCommandEnvUsesRepoLocalToolStateForMise(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "sample-project")
 	runtimeRoot := t.TempDir()
-	t.Setenv("MKPROJ_RUNTIME_ROOT", runtimeRoot)
+	t.Setenv("FORGE_RUNTIME_ROOT", runtimeRoot)
 	env := commandEnv(dir, "mise install", "mise")
 
 	assertEnvContains(t, env, "HOME="+filepath.Join(runtimeRoot, "tool-home"))
@@ -49,7 +49,7 @@ func TestCommandEnvAddsFallbackMiseDirectoryToPATH(t *testing.T) {
 	})
 
 	t.Setenv("PATH", "/usr/bin")
-	t.Setenv("MKPROJ_RUNTIME_ROOT", runtimeRoot)
+	t.Setenv("FORGE_RUNTIME_ROOT", runtimeRoot)
 
 	env := commandEnv(dir, "mise install", "mise")
 	pathValue := envValue(env, "PATH")
@@ -122,7 +122,7 @@ func TestCommandEnvLeavesHomeUntouchedForNonMiseCommands(t *testing.T) {
 func TestCommandEnvUsesRepoLocalMiseStateForGitCommit(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "sample-project")
 	runtimeRoot := t.TempDir()
-	t.Setenv("MKPROJ_RUNTIME_ROOT", runtimeRoot)
+	t.Setenv("FORGE_RUNTIME_ROOT", runtimeRoot)
 	env := commandEnv(dir, "git commit", "git")
 
 	assertEnvContains(t, env, "HOME="+filepath.Join(runtimeRoot, "tool-home"))

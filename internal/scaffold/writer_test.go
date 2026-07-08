@@ -8,8 +8,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"mkproj"
-	"mkproj/internal/project"
+	"forge"
+	"forge/internal/project"
 )
 
 func TestWriterComposesCommonVanillaAndOverlayAssets(t *testing.T) {
@@ -17,15 +17,15 @@ func TestWriterComposesCommonVanillaAndOverlayAssets(t *testing.T) {
 
 	tempDir := t.TempDir()
 	assets := fstest.MapFS{
-		"templates/common/AGENTS.md.tmpl":                              {Data: []byte("Project {{.ProjectName}}\n")},
-		"templates/common/gitignore.base":                              {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/settings.local.json.tmpl":             {Data: []byte("{\"project\":\"{{.ProjectName}}\"}\n")},
-		"templates/common/claude/hooks/secret-scan.sh":                 {Data: []byte("#!/usr/bin/env bash\n")},
-		"templates/common/codex/hooks.json":                            {Data: []byte("{\"hooks\":{}}\n")},
-		"templates/gitignore/Go.gitignore":                             {Data: []byte("bin/\n")},
-		"templates/golden/go-cli-cobra/main.go.tmpl":                   {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
-		"templates/golden/go-cli-cobra/.mkproj-overlay/main.go":        {Data: []byte("package main\n\nconst Overlay = true\n")},
-		"templates/golden/go-cli-cobra/.mkproj-overlay/README.md.tmpl": {Data: []byte("# {{.ProjectName}}\n")},
+		"templates/common/AGENTS.md.tmpl":                             {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":                             {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/settings.local.json.tmpl":            {Data: []byte("{\"project\":\"{{.ProjectName}}\"}\n")},
+		"templates/common/claude/hooks/secret-scan.sh":                {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":                           {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":                            {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":                  {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+		"templates/golden/go-cli-cobra/.forge-overlay/main.go":        {Data: []byte("package main\n\nconst Overlay = true\n")},
+		"templates/golden/go-cli-cobra/.forge-overlay/README.md.tmpl": {Data: []byte("# {{.ProjectName}}\n")},
 	}
 
 	vars, err := project.ResolveVariables(project.Input{
@@ -115,7 +115,7 @@ func TestWriterRendersPythonPackageAndLanguageScopedManifestFromEmbeddedTemplate
 		t.Fatalf("ResolveVariables() error = %v", err)
 	}
 
-	writer := Writer{Assets: mkproj.Assets()}
+	writer := Writer{Assets: forge.Assets()}
 	if err := writer.Write(tempDir, vars); err != nil {
 		t.Fatalf("Write() error = %v", err)
 	}
@@ -152,7 +152,7 @@ func TestWriterRendersCSharpNamespaceIntoProjectFile(t *testing.T) {
 		t.Fatalf("ResolveVariables() error = %v", err)
 	}
 
-	writer := Writer{Assets: mkproj.Assets()}
+	writer := Writer{Assets: forge.Assets()}
 	if err := writer.Write(tempDir, vars); err != nil {
 		t.Fatalf("Write() error = %v", err)
 	}

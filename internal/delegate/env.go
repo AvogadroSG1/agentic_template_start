@@ -73,7 +73,7 @@ func needsRepoLocalHome(step string, command string) bool {
 }
 
 func repoLocalRuntimeRoot() string {
-	return os.Getenv("MKPROJ_RUNTIME_ROOT")
+	return os.Getenv("FORGE_RUNTIME_ROOT")
 }
 
 func repoLocalRuntimeEnv(runtimeRoot string) []string {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"mkproj"
-	"mkproj/internal/prompt"
+	"forge"
+	"forge/internal/prompt"
 )
 
 func TestTerminalPrompterImplementsPrompterWithoutBufioFields(t *testing.T) {
@@ -44,7 +44,7 @@ func TestRunInitReturnsErrCancelledOnUserAbort(t *testing.T) {
 		"--project-name", "Test",
 		"--language", "go",
 		"--project-type", "cli",
-	}, mkproj.Assets())
+	}, forge.Assets())
 
 	if err == nil {
 		t.Fatal("runInit() should fail when stack is missing in non-TTY mode")
@@ -60,7 +60,7 @@ func TestRunInitReturnsErrCancelledOnUserAbort(t *testing.T) {
 func TestRunReturnsErrCancelledWhenUserAborts(t *testing.T) {
 	t.Parallel()
 
-	err := run([]string{"init", "--project-name", "Test"}, mkproj.Assets())
+	err := run([]string{"init", "--project-name", "Test"}, forge.Assets())
 	if err == nil {
 		t.Fatal("run() should return error for missing flags in non-TTY")
 	}
@@ -108,12 +108,12 @@ func TestSyncAllowlistUsesCanonicalEmbeddedEntriesForTheProjectLanguage(t *testi
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END FORGE ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	if err := runSyncAllowlist([]string{"--path", settingsPath}, mkproj.Assets()); err != nil {
+	if err := runSyncAllowlist([]string{"--path", settingsPath}, forge.Assets()); err != nil {
 		t.Fatalf("runSyncAllowlist() error = %v", err)
 	}
 
@@ -135,18 +135,18 @@ func TestSyncAllowlistUsesCanonicalEmbeddedEntriesForTheProjectLanguage(t *testi
 func TestRunSyncAllowlistCheckNotifiesWithoutMutatingSettings(t *testing.T) {
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END FORGE ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
 	output, err := captureStdout(t, func() error {
-		return runSyncAllowlist([]string{"--check", "--path", settingsPath}, mkproj.Assets())
+		return runSyncAllowlist([]string{"--check", "--path", settingsPath}, forge.Assets())
 	})
 	if err != nil {
 		t.Fatalf("runSyncAllowlist(--check) error = %v", err)
 	}
-	if !strings.Contains(output, "allowlist is 1 version(s) behind; run mkproj sync-allowlist") {
+	if !strings.Contains(output, "allowlist is 1 version(s) behind; run forge sync-allowlist") {
 		t.Fatalf("runSyncAllowlist(--check) output = %q, want stale notice", output)
 	}
 
@@ -164,12 +164,12 @@ func TestRunSyncAllowlistIncludesPersonalRulesOnlyWhenRequested(t *testing.T) {
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END FORGE ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	if err := runSyncAllowlist([]string{"--path", settingsPath}, mkproj.Assets()); err != nil {
+	if err := runSyncAllowlist([]string{"--path", settingsPath}, forge.Assets()); err != nil {
 		t.Fatalf("runSyncAllowlist(default) error = %v", err)
 	}
 	data, err := os.ReadFile(settingsPath)
@@ -180,7 +180,7 @@ func TestRunSyncAllowlistIncludesPersonalRulesOnlyWhenRequested(t *testing.T) {
 		t.Fatalf("default sync unexpectedly included personal rules:\n%s", string(data))
 	}
 
-	if err := runSyncAllowlist([]string{"--include-personal", "--path", settingsPath}, mkproj.Assets()); err != nil {
+	if err := runSyncAllowlist([]string{"--include-personal", "--path", settingsPath}, forge.Assets()); err != nil {
 		t.Fatalf("runSyncAllowlist(--include-personal) error = %v", err)
 	}
 	data, err = os.ReadFile(settingsPath)
@@ -199,12 +199,12 @@ func TestRunSyncAllowlistRejectsConflictingManagedBlockLanguageMarkers(t *testin
 
 	tempDir := t.TempDir()
 	settingsPath := filepath.Join(tempDir, "settings.local.json")
-	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN MKPROJ ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"Bash(python:*)\",\n      \"// END MKPROJ ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
+	original := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"Bash(python:*)\",\n      \"// END FORGE ALLOW\",\n      \"Bash(true)\"\n    ]\n  }\n}\n"
 	if err := os.WriteFile(settingsPath, []byte(original), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	err := runSyncAllowlist([]string{"--path", settingsPath}, mkproj.Assets())
+	err := runSyncAllowlist([]string{"--path", settingsPath}, forge.Assets())
 	if err == nil || !strings.Contains(err.Error(), "conflicting language markers") {
 		t.Fatalf("runSyncAllowlist() error = %v, want conflicting language markers", err)
 	}
@@ -225,7 +225,7 @@ func TestSelectCommandRecognizesUpdate(t *testing.T) {
 func TestRunUpdateRequiresStackFlag(t *testing.T) {
 	t.Parallel()
 
-	err := runUpdate(nil, mkproj.Assets())
+	err := runUpdate(nil, forge.Assets())
 	if err == nil {
 		t.Fatal("runUpdate() error = nil, want missing stack flag")
 	}

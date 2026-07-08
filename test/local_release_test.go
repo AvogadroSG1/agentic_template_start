@@ -20,7 +20,7 @@ import (
 
 const stepTimeout = 5 * time.Minute
 
-var mkprojBinary string
+var forgeBinary string
 var runtimeWorkspaceRoot string
 
 func TestMain(m *testing.M) {
@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 
 	repoRoot := filepath.Clean(filepath.Join(wd, ".."))
 	runtimeWorkspaceRoot = repoRoot
-	tmpDir, err := newWorkspaceRuntimeDir(repoRoot, "mkproj-verify")
+	tmpDir, err := newWorkspaceRuntimeDir(repoRoot, "forge-verify")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "creating temp dir: %v\n", err)
 		os.Exit(1)
@@ -47,20 +47,20 @@ func TestMain(m *testing.M) {
 	}
 	ensureProcessToolPath("dotnet")
 
-	binaryPath := filepath.Join(tmpDir, "mkproj")
+	binaryPath := filepath.Join(tmpDir, "forge")
 	if runtime.GOOS == "windows" {
 		binaryPath += ".exe"
 	}
 
-	build := exec.Command("go", "build", "-o", binaryPath, "./cmd/mkproj")
+	build := exec.Command("go", "build", "-o", binaryPath, "./cmd/forge")
 	build.Dir = repoRoot
 	build.Env = append(os.Environ(), "GOCACHE="+filepath.Join(tmpDir, "go-build-cache"))
 	if output, err := build.CombinedOutput(); err != nil {
-		fmt.Fprintf(os.Stderr, "building mkproj: %v\n%s\n", err, output)
+		fmt.Fprintf(os.Stderr, "building forge: %v\n%s\n", err, output)
 		os.Exit(1)
 	}
 
-	mkprojBinary = binaryPath
+	forgeBinary = binaryPath
 
 	code := m.Run()
 	if err := os.RemoveAll(tmpDir); err != nil {
@@ -128,10 +128,10 @@ func TestLocalRelease(t *testing.T) {
 
 			runStep(
 				t,
-				"mkproj init",
+				"forge init",
 				dir,
 				envRoot,
-				mkprojBinary,
+				forgeBinary,
 				"init",
 				"--project-name", "Verify "+stack.name,
 				"--language", stack.language,
@@ -159,9 +159,9 @@ func tempRuntimeDir(t *testing.T) string {
 		err error
 	)
 	if runtimeWorkspaceRoot != "" {
-		dir, err = newWorkspaceRuntimeDir(runtimeWorkspaceRoot, "mkproj-runtime")
+		dir, err = newWorkspaceRuntimeDir(runtimeWorkspaceRoot, "forge-runtime")
 	} else {
-		dir, err = os.MkdirTemp("", "mkproj-runtime-*")
+		dir, err = os.MkdirTemp("", "forge-runtime-*")
 	}
 	if err != nil {
 		t.Fatalf("creating runtime dir: %v", err)

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkproj"
+	"forge"
 )
 
 var shippedStacks = []string{
@@ -21,16 +21,16 @@ var shippedStacks = []string{
 func TestShippedStacksCarryGatePipelineAssets(t *testing.T) {
 	t.Parallel()
 
-	assets := mkproj.Assets()
+	assets := forge.Assets()
 	for _, stack := range shippedStacks {
 		stack := stack
 		t.Run(stack, func(t *testing.T) {
 			t.Parallel()
 
 			for _, rel := range []string{
-				".mkproj-overlay/mise.toml",
-				".mkproj-overlay/lefthook.yml",
-				".mkproj-overlay/.github/workflows/ci.yml",
+				".forge-overlay/mise.toml",
+				".forge-overlay/lefthook.yml",
+				".forge-overlay/.github/workflows/ci.yml",
 			} {
 				assetPath := filepath.ToSlash(filepath.Join("templates/golden", stack, rel))
 				if _, err := fs.Stat(assets, assetPath); err != nil {
@@ -44,13 +44,13 @@ func TestShippedStacksCarryGatePipelineAssets(t *testing.T) {
 func TestShippedStacksDefineGateTasksAndHookCallers(t *testing.T) {
 	t.Parallel()
 
-	assets := mkproj.Assets()
+	assets := forge.Assets()
 	for _, stack := range shippedStacks {
 		stack := stack
 		t.Run(stack, func(t *testing.T) {
 			t.Parallel()
 
-			misePath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".mkproj-overlay", "mise.toml"))
+			misePath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".forge-overlay", "mise.toml"))
 			miseData, err := fs.ReadFile(assets, misePath)
 			if err != nil {
 				t.Fatalf("ReadFile(%s) error = %v", misePath, err)
@@ -62,7 +62,7 @@ func TestShippedStacksDefineGateTasksAndHookCallers(t *testing.T) {
 				}
 			}
 
-			hookPath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".mkproj-overlay", "lefthook.yml"))
+			hookPath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".forge-overlay", "lefthook.yml"))
 			hookData, err := fs.ReadFile(assets, hookPath)
 			if err != nil {
 				t.Fatalf("ReadFile(%s) error = %v", hookPath, err)
@@ -80,13 +80,13 @@ func TestShippedStacksDefineGateTasksAndHookCallers(t *testing.T) {
 func TestSharedCIWorkflowOnlyDelegatesToMise(t *testing.T) {
 	t.Parallel()
 
-	assets := mkproj.Assets()
+	assets := forge.Assets()
 	for _, stack := range shippedStacks {
 		stack := stack
 		t.Run(stack, func(t *testing.T) {
 			t.Parallel()
 
-			ciPath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".mkproj-overlay", ".github", "workflows", "ci.yml"))
+			ciPath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".forge-overlay", ".github", "workflows", "ci.yml"))
 			ciData, err := fs.ReadFile(assets, ciPath)
 			if err != nil {
 				t.Fatalf("ReadFile(%s) error = %v", ciPath, err)

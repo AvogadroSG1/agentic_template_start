@@ -54,7 +54,7 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/go-cli-cobra/cmd/root.go.tmpl",
 				"templates/golden/go-cli-cobra/cmd/serve.go.tmpl",
 				"templates/golden/go-cli-cobra/cmd/config.go.tmpl",
-				"templates/golden/go-cli-cobra/.mkproj-overlay/cmd/root_test.go.tmpl",
+				"templates/golden/go-cli-cobra/.forge-overlay/cmd/root_test.go.tmpl",
 			},
 		},
 		{
@@ -65,10 +65,10 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/go-api-chi/configs/.keep",
 				"templates/golden/go-api-chi/internal/platform/.keep",
 				"templates/golden/go-api-chi/pkg/.keep",
-				"templates/golden/go-api-chi/.mkproj-overlay/cmd/api/main.go.tmpl",
-				"templates/golden/go-api-chi/.mkproj-overlay/internal/httpapi/router.go.tmpl",
-				"templates/golden/go-api-chi/.mkproj-overlay/internal/httpapi/health.go.tmpl",
-				"templates/golden/go-api-chi/.mkproj-overlay/internal/httpapi/health_test.go.tmpl",
+				"templates/golden/go-api-chi/.forge-overlay/cmd/api/main.go.tmpl",
+				"templates/golden/go-api-chi/.forge-overlay/internal/httpapi/router.go.tmpl",
+				"templates/golden/go-api-chi/.forge-overlay/internal/httpapi/health.go.tmpl",
+				"templates/golden/go-api-chi/.forge-overlay/internal/httpapi/health_test.go.tmpl",
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/python-cli-typer/pyproject.toml.tmpl",
 				"templates/golden/python-cli-typer/src/app/__init__.py",
 				"templates/golden/python-cli-typer/src/app/main.py",
-				"templates/golden/python-cli-typer/.mkproj-overlay/tests/test_cli.py",
+				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py",
 			},
 		},
 		{
@@ -86,7 +86,7 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/python-fastapi/pyproject.toml.tmpl",
 				"templates/golden/python-fastapi/app/__init__.py",
 				"templates/golden/python-fastapi/app/main.py",
-				"templates/golden/python-fastapi/.mkproj-overlay/tests/test_health.py",
+				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py",
 			},
 		},
 		{
@@ -95,8 +95,8 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/csharp-cli/Project.csproj.tmpl",
 				"templates/golden/csharp-cli/Program.cs",
 				"templates/golden/csharp-cli/GreetingBuilder.cs",
-				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/ProgramTests.cs",
+				"templates/golden/csharp-cli/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
+				"templates/golden/csharp-cli/.forge-overlay/tests/Project.Tests/ProgramTests.cs",
 			},
 		},
 		{
@@ -106,8 +106,8 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 				"templates/golden/csharp-webapi/Program.cs",
 				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
 				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
+				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
+				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
 			},
 		},
 	}
@@ -172,7 +172,7 @@ func TestCSharpCLIStarterFilesCarryStyleCopFileHeaders(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Program.cs"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "ProgramTests.cs"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".forge-overlay", "tests", "Project.Tests", "ProgramTests.cs"),
 	}
 
 	for _, path := range files {
@@ -193,7 +193,7 @@ func TestCSharpCLIProjectFilesSuppressStyleCopHeaderMismatchRule(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Project.csproj.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
 	}
 
 	for _, path := range files {
@@ -214,7 +214,7 @@ func TestCSharpCLIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", "Project.csproj.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-cli", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
 	}
 
 	for _, path := range files {
@@ -233,7 +233,7 @@ func TestCSharpCLIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
 func TestPythonCLITyperStarterTestInvokesHelloSubcommand(t *testing.T) {
 	repoRoot := repoRoot(t)
 	mainPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", "src", "app", "main.py")
-	testPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", ".mkproj-overlay", "tests", "test_cli.py")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", ".forge-overlay", "tests", "test_cli.py")
 
 	mainBytes, err := os.ReadFile(mainPath)
 	if err != nil {
@@ -273,7 +273,7 @@ func TestCSharpWebAPIProjectTemplateExcludesTestSourcesFromRootCompile(t *testin
 
 func TestCSharpWebAPITestProjectDoesNotDependOnTestHost(t *testing.T) {
 	repoRoot := repoRoot(t)
-	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
 
 	contentBytes, err := os.ReadFile(projectPath)
 	if err != nil {
@@ -293,7 +293,7 @@ func TestCSharpWebAPIStarterFilesCarryStyleCopFileHeaders(t *testing.T) {
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Program.cs"),
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "WeatherForecast.cs.tmpl"),
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Controllers", "WeatherForecastController.cs.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs"),
 	}
 
 	for _, path := range files {
@@ -314,7 +314,7 @@ func TestCSharpWebAPIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
 	}
 
 	for _, path := range files {
@@ -350,7 +350,7 @@ func TestCSharpWebAPIProjectFilesSuppressStyleCopHeaderMismatchRule(t *testing.T
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", "Project.csproj.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
+		filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl"),
 	}
 
 	for _, path := range files {
@@ -368,7 +368,7 @@ func TestCSharpWebAPIProjectFilesSuppressStyleCopHeaderMismatchRule(t *testing.T
 
 func TestCSharpWebAPITestProjectEnablesImplicitUsings(t *testing.T) {
 	repoRoot := repoRoot(t)
-	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
+	projectPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "Project.Tests.csproj.tmpl")
 
 	contentBytes, err := os.ReadFile(projectPath)
 	if err != nil {
@@ -383,7 +383,7 @@ func TestCSharpWebAPITestProjectEnablesImplicitUsings(t *testing.T) {
 
 func TestCSharpWebAPIWeatherForecastEndpointTestUsesStyleCopFriendlyAsyncPattern(t *testing.T) {
 	repoRoot := repoRoot(t)
-	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
 
 	contentBytes, err := os.ReadFile(testPath)
 	if err != nil {
@@ -426,7 +426,7 @@ func TestCSharpWebAPIProgramTemplateKeepsControllerBasedStarter(t *testing.T) {
 
 func TestCSharpWebAPIWeatherForecastEndpointTestUsesRealAppProcessProbe(t *testing.T) {
 	repoRoot := repoRoot(t)
-	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".mkproj-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "csharp-webapi", ".forge-overlay", "tests", "Project.Tests", "WeatherForecastEndpointTests.cs")
 
 	contentBytes, err := os.ReadFile(testPath)
 	if err != nil {
@@ -500,7 +500,7 @@ func TestGoAPIChiPinsPatchedGoToolchainForVulnerabilityGate(t *testing.T) {
 
 	files := []string{
 		filepath.Join(repoRoot, "templates", "golden", "go-api-chi", "go.mod.tmpl"),
-		filepath.Join(repoRoot, "templates", "golden", "go-api-chi", ".mkproj-overlay", "mise.toml"),
+		filepath.Join(repoRoot, "templates", "golden", "go-api-chi", ".forge-overlay", "mise.toml"),
 	}
 
 	for _, path := range files {

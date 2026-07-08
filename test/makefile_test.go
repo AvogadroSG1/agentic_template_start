@@ -28,10 +28,10 @@ func TestMakefileDefinesCoreTargets(t *testing.T) {
 		".DEFAULT_GOAL := help",
 		".PHONY: help build test install uninstall clean",
 		"help: ## Show available targets",
-		"build: ## Build the mkproj binary into bin/",
+		"build: ## Build the forge binary into bin/",
 		"\t@mkdir -p $(BIN_DIR) $(CURDIR)/.cache/tokf",
 		"\t@export GOCACHE=$(CURDIR)/.cache/go-build TOKF_HOME=$(CURDIR)/.cache/tokf TOKF_DB_PATH=$(CURDIR)/.cache/tokf/tracking.db; \\",
-		"\tgo build -o $(BIN_PATH) ./cmd/mkproj",
+		"\tgo build -o $(BIN_PATH) ./cmd/forge",
 		"test: ## Run the full Go test suite",
 		"\tGOCACHE=$(CURDIR)/.cache/go-build go test ./... -count=1",
 		"clean: ## Remove local build outputs",
@@ -61,7 +61,7 @@ func TestMakeDefaultTargetShowsHelp(t *testing.T) {
 	}
 }
 
-func TestMakeBuildProducesMkprojBinary(t *testing.T) {
+func TestMakeBuildProducesForgeBinary(t *testing.T) {
 	t.Parallel()
 
 	lockMakefileTest(t)
@@ -79,15 +79,15 @@ func TestMakeBuildProducesMkprojBinary(t *testing.T) {
 		}
 	}()
 
-	info, err := os.Stat(filepath.Join(repoRoot, "bin", "mkproj"))
+	info, err := os.Stat(filepath.Join(repoRoot, "bin", "forge"))
 	if err != nil {
-		t.Fatalf("Stat(bin/mkproj) error = %v", err)
+		t.Fatalf("Stat(bin/forge) error = %v", err)
 	}
 	if info.IsDir() {
-		t.Fatal("bin/mkproj is a directory, want file")
+		t.Fatal("bin/forge is a directory, want file")
 	}
 	if info.Mode()&0o111 == 0 {
-		t.Fatalf("bin/mkproj mode = %v, want executable bit", info.Mode())
+		t.Fatalf("bin/forge mode = %v, want executable bit", info.Mode())
 	}
 }
 
@@ -106,11 +106,11 @@ func TestMakefileDefinesInstallLifecycleTargets(t *testing.T) {
 	for _, snippet := range []string{
 		"BINDIR ?= $(HOME)/.local/bin",
 		".PHONY: help build test install uninstall clean",
-		"install: build ## Install mkproj into BINDIR",
+		"install: build ## Install forge into BINDIR",
 		"\t@mkdir -p $(BINDIR)",
-		"\tinstall -m 0755 $(BIN_PATH) $(BINDIR)/mkproj",
-		"uninstall: ## Remove installed mkproj from BINDIR",
-		"\trm -f $(BINDIR)/mkproj",
+		"\tinstall -m 0755 $(BIN_PATH) $(BINDIR)/forge",
+		"uninstall: ## Remove installed forge from BINDIR",
+		"\trm -f $(BINDIR)/forge",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("Makefile missing %q\n%s", snippet, text)
@@ -124,8 +124,8 @@ func TestMakeInstallAndUninstallRoundTrip(t *testing.T) {
 	lockMakefileTest(t)
 
 	repoRoot := repoRoot(t)
-	bindir := filepath.Join(repoRoot, ".cache", "mkproj-bin")
-	installedBinary := filepath.Join(bindir, "mkproj")
+	bindir := filepath.Join(repoRoot, ".cache", "forge-bin")
+	installedBinary := filepath.Join(bindir, "forge")
 
 	if output, err := runMake(t, repoRoot, "clean"); err != nil {
 		t.Fatalf("make clean error = %v\n%s", err, output)
@@ -210,7 +210,7 @@ func TestMakeBuildTargetUsesRepoLocalCacheUnderMakeDashC(t *testing.T) {
 		"export GOCACHE=" + filepath.Join(repoRoot, ".cache", "go-build"),
 		"TOKF_HOME=" + filepath.Join(repoRoot, ".cache", "tokf"),
 		"TOKF_DB_PATH=" + filepath.Join(repoRoot, ".cache", "tokf", "tracking.db"),
-		"go build -o bin/mkproj ./cmd/mkproj",
+		"go build -o bin/forge ./cmd/forge",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("make -n -C build output missing %q\n%s", snippet, text)
@@ -261,8 +261,8 @@ func TestReadmeDocumentsMakeWorkflow(t *testing.T) {
 	}
 
 	for _, snippet := range []string{
-		"go build ./cmd/mkproj",
-		"go build -o $(BIN_PATH) ./cmd/mkproj",
+		"go build ./cmd/forge",
+		"go build -o $(BIN_PATH) ./cmd/forge",
 	} {
 		if strings.Contains(text, snippet) {
 			t.Fatalf("README.md still contains stale guidance %q\n%s", snippet, text)

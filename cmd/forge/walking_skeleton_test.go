@@ -13,7 +13,7 @@ func TestWalkingSkeletonGoCLIInitRunsThroughMiseCI(t *testing.T) {
 	t.Parallel()
 
 	buildDir := t.TempDir()
-	binaryPath := filepath.Join(buildDir, "mkproj")
+	binaryPath := filepath.Join(buildDir, "forge")
 	if runtime.GOOS == "windows" {
 		binaryPath += ".exe"
 	}
@@ -96,7 +96,7 @@ esac
 	initCmd.Dir = targetDir
 	initCmd.Env = append(os.Environ(), "PATH="+pathEnv)
 	if output, err := initCmd.CombinedOutput(); err != nil {
-		t.Fatalf("mkproj init error = %v\n%s", err, output)
+		t.Fatalf("forge init error = %v\n%s", err, output)
 	}
 
 	for _, rel := range []string{"mise.toml", "lefthook.yml", ".github/workflows/ci.yml", "cmd/root_test.go"} {
@@ -131,7 +131,7 @@ func writeExecutable(t *testing.T, path string, contents string) {
 func TestWalkingSkeletonFixtureDefinesGoGateTasks(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile(filepath.Join("..", "..", "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "mise.toml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "templates", "golden", "go-cli-cobra", ".forge-overlay", "mise.toml"))
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
 	}

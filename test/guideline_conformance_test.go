@@ -45,8 +45,8 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "golang",
 			files: []string{
 				"templates/golden/go-cli-cobra/go.mod.tmpl",
-				"templates/golden/go-cli-cobra/.mkproj-overlay/mise.toml",
-				"templates/golden/go-cli-cobra/.mkproj-overlay/cmd/root_test.go.tmpl",
+				"templates/golden/go-cli-cobra/.forge-overlay/mise.toml",
+				"templates/golden/go-cli-cobra/.forge-overlay/cmd/root_test.go.tmpl",
 			},
 		},
 		{
@@ -54,8 +54,8 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "golang",
 			files: []string{
 				"templates/golden/go-api-chi/go.mod.tmpl",
-				"templates/golden/go-api-chi/.mkproj-overlay/mise.toml",
-				"templates/golden/go-api-chi/.mkproj-overlay/internal/httpapi/health_test.go.tmpl",
+				"templates/golden/go-api-chi/.forge-overlay/mise.toml",
+				"templates/golden/go-api-chi/.forge-overlay/internal/httpapi/health_test.go.tmpl",
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "python",
 			files: []string{
 				"templates/golden/python-cli-typer/pyproject.toml.tmpl",
-				"templates/golden/python-cli-typer/.mkproj-overlay/mise.toml",
-				"templates/golden/python-cli-typer/.mkproj-overlay/tests/test_cli.py",
+				"templates/golden/python-cli-typer/.forge-overlay/mise.toml",
+				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py",
 			},
 		},
 		{
@@ -72,8 +72,8 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "python",
 			files: []string{
 				"templates/golden/python-fastapi/pyproject.toml.tmpl",
-				"templates/golden/python-fastapi/.mkproj-overlay/mise.toml",
-				"templates/golden/python-fastapi/.mkproj-overlay/tests/test_health.py",
+				"templates/golden/python-fastapi/.forge-overlay/mise.toml",
+				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py",
 			},
 		},
 		{
@@ -81,9 +81,9 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "csharp",
 			files: []string{
 				"templates/golden/csharp-cli/Project.csproj.tmpl",
-				"templates/golden/csharp-cli/.mkproj-overlay/mise.toml",
-				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-cli/.mkproj-overlay/tests/Project.Tests/ProgramTests.cs",
+				"templates/golden/csharp-cli/.forge-overlay/mise.toml",
+				"templates/golden/csharp-cli/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
+				"templates/golden/csharp-cli/.forge-overlay/tests/Project.Tests/ProgramTests.cs",
 			},
 		},
 		{
@@ -91,11 +91,11 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "csharp",
 			files: []string{
 				"templates/golden/csharp-webapi/Project.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/mise.toml",
+				"templates/golden/csharp-webapi/.forge-overlay/mise.toml",
 				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
 				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
-				"templates/golden/csharp-webapi/.mkproj-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
+				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
+				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
 			},
 		},
 	}

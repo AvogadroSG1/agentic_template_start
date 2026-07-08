@@ -1,4 +1,4 @@
-package mkproj
+package forge
 
 import (
 	"embed"

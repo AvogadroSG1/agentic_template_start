@@ -1,4 +1,4 @@
-// Package catalog defines the executable v1 stack boundary for mkproj.
+// Package catalog defines the executable v1 stack boundary for forge.
 package catalog
 
 import "strings"
@@ -12,7 +12,7 @@ var v1Stacks = []Stack{
 	{Key: "csharp-webapi", Language: "csharp", ProjectType: "api"},
 }
 
-// Stack identifies one shippable mkproj stack in the v1 catalog.
+// Stack identifies one shippable forge stack in the v1 catalog.
 type Stack struct {
 	Key         string
 	Language    string

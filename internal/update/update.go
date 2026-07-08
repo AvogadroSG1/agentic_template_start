@@ -16,7 +16,7 @@ import (
 	"text/template"
 	"time"
 
-	"mkproj/internal/project"
+	"forge/internal/project"
 
 	"gopkg.in/yaml.v3"
 )
@@ -112,7 +112,7 @@ func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, 
 		return fmt.Errorf("maintainer refresh currently supports Go stacks only; stack %s resolves to %s", stack, vars.Language)
 	}
 
-	workspaceRoot, err := os.MkdirTemp("", "mkproj-update-")
+	workspaceRoot, err := os.MkdirTemp("", "forge-update-")
 	if err != nil {
 		return fmt.Errorf("create update workspace: %w", err)
 	}
@@ -252,11 +252,11 @@ func representativeVariables(stack string, row sourceRow) (project.Variables, er
 	}
 
 	return project.ResolveVariables(project.Input{
-		ProjectName: "Mkproj Template Fixture",
+		ProjectName: "Forge Template Fixture",
 		Language:    language,
 		ProjectType: row.Kind,
 		Stack:       stack,
-		AuthorName:  "Mkproj Maintainer",
+		AuthorName:  "Forge Maintainer",
 		AuthorEmail: "maintainer@example.com",
 		Remote:      project.RemoteNone,
 	})
@@ -410,10 +410,10 @@ func loadTemplateContract(committedStackDir string) (templateContract, error) {
 		}
 
 		relPath = filepath.ToSlash(relPath)
-		if relPath == ".mkproj-overlay" {
+		if relPath == ".forge-overlay" {
 			return fs.SkipDir
 		}
-		if strings.HasPrefix(relPath, ".mkproj-overlay/") || d.IsDir() {
+		if strings.HasPrefix(relPath, ".forge-overlay/") || d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(relPath, ".tmpl") {
@@ -538,7 +538,7 @@ func applyTemplatePlaceholders(data []byte, vars project.Variables) []byte {
 }
 
 func checkOverlaySeam(committedStackDir string, refreshedVanilla string) (seamCheckReport, error) {
-	overlayDir := filepath.Join(committedStackDir, ".mkproj-overlay")
+	overlayDir := filepath.Join(committedStackDir, ".forge-overlay")
 	if _, err := os.Stat(overlayDir); errors.Is(err, fs.ErrNotExist) {
 		return seamCheckReport{}, nil
 	} else if err != nil {
@@ -656,10 +656,10 @@ func captureVanillaSnapshot(root string) (map[string]string, error) {
 			return nil
 		}
 		relPath = filepath.ToSlash(relPath)
-		if relPath == ".mkproj-overlay" {
+		if relPath == ".forge-overlay" {
 			return fs.SkipDir
 		}
-		if strings.HasPrefix(relPath, ".mkproj-overlay/") || d.IsDir() {
+		if strings.HasPrefix(relPath, ".forge-overlay/") || d.IsDir() {
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -966,7 +966,7 @@ func lineIndent(line string) int {
 }
 
 func writeFileAtomically(path string, data []byte, mode os.FileMode) error {
-	tempFile, err := os.CreateTemp(filepath.Dir(path), ".mkproj-sources-*")
+	tempFile, err := os.CreateTemp(filepath.Dir(path), ".forge-sources-*")
 	if err != nil {
 		return err
 	}
@@ -1009,7 +1009,7 @@ func replaceVanillaLayer(committedStackDir string, refreshedVanilla string) erro
 		return fmt.Errorf("ensure committed stack parent: %w", err)
 	}
 
-	stagedDir, err := os.MkdirTemp(parentDir, ".mkproj-vanilla-*")
+	stagedDir, err := os.MkdirTemp(parentDir, ".forge-vanilla-*")
 	if err != nil {
 		return fmt.Errorf("create staged vanilla dir: %w", err)
 	}
@@ -1023,7 +1023,7 @@ func replaceVanillaLayer(committedStackDir string, refreshedVanilla string) erro
 	if err := copyTree(refreshedVanilla, stagedDir); err != nil {
 		return err
 	}
-	if err := copyOverlay(filepath.Join(committedStackDir, ".mkproj-overlay"), filepath.Join(stagedDir, ".mkproj-overlay")); err != nil {
+	if err := copyOverlay(filepath.Join(committedStackDir, ".forge-overlay"), filepath.Join(stagedDir, ".forge-overlay")); err != nil {
 		return err
 	}
 
@@ -1037,7 +1037,7 @@ func replaceVanillaLayer(committedStackDir string, refreshedVanilla string) erro
 		return fmt.Errorf("stat committed stack dir: %w", err)
 	}
 
-	backupDir := committedStackDir + ".mkproj-backup"
+	backupDir := committedStackDir + ".forge-backup"
 	if err := os.RemoveAll(backupDir); err != nil {
 		return fmt.Errorf("clear vanilla backup dir: %w", err)
 	}

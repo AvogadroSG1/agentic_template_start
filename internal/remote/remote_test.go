@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkproj/internal/project"
+	"forge/internal/project"
 )
 
 func TestPublishRemoteNoneOnlyCommitsLocally(t *testing.T) {

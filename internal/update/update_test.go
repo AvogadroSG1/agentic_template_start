@@ -397,7 +397,7 @@ func TestRunRefreshesRepresentativeStackAndPreservesOverlay(t *testing.T) {
 	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
 	seedRepresentativeTemplateContract(t, repoRoot)
 	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt"), "stale\n")
-	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".forge-overlay", "cmd", "root_test.go.tmpl")
 	mustWriteFile(t, overlayPath, "package cmd\n")
 
 	runner := newRepresentativeStackRunner(t)
@@ -611,7 +611,7 @@ func TestRunIsIdempotentWhenRepresentativeStackIsUnchanged(t *testing.T) {
 	repoRoot := t.TempDir()
 	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
 	seedRepresentativeTemplateContract(t, repoRoot)
-	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl"), "package cmd\n")
+	mustWriteFile(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".forge-overlay", "cmd", "root_test.go.tmpl"), "package cmd\n")
 
 	runner := newRepresentativeStackRunner(t)
 	withWorkingDir(t, repoRoot, func() {
@@ -649,7 +649,7 @@ func TestRunFailsLoudOnOrphanedOverlayPathAndWritesNothing(t *testing.T) {
 	seedRepresentativeTemplateContract(t, repoRoot)
 	rootGoPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "cmd", "root.go.tmpl")
 	mustWriteFile(t, rootGoPath, "before\n")
-	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".forge-overlay", "cmd", "root_test.go.tmpl")
 	mustWriteFile(t, overlayPath, "package cmd\n")
 
 	runner := &recordingCommandRunner{runFunc: func(dir string, step string, command string, args ...string) error {
@@ -702,7 +702,7 @@ func TestRunLeavesCommittedVanillaUntouchedWhenStagedReplaceFails(t *testing.T) 
 	mustWriteFile(t, rootGoPath, "before\n")
 	stalePath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", "stale.txt")
 	mustWriteFile(t, stalePath, "stale\n")
-	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root_test.go.tmpl")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".forge-overlay", "cmd", "root_test.go.tmpl")
 	mustWriteFile(t, overlayPath, "package cmd\n")
 	beforeTree := captureTree(t, filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra"))
 
@@ -794,7 +794,7 @@ func TestRunAllowsCollisionWhilePreservingOverlay(t *testing.T) {
 	repoRoot := t.TempDir()
 	mustWriteFile(t, filepath.Join(repoRoot, "sources.yaml"), embeddedRepresentativeSourcesYAML)
 	seedRepresentativeTemplateContract(t, repoRoot)
-	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".mkproj-overlay", "cmd", "root.go.tmpl")
+	overlayPath := filepath.Join(repoRoot, "templates", "golden", "go-cli-cobra", ".forge-overlay", "cmd", "root.go.tmpl")
 	mustWriteFile(t, overlayPath, "package cmd\n\nconst OverlayWins = true\n")
 
 	runner := newRepresentativeStackRunner(t)
