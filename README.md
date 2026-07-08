@@ -1,6 +1,6 @@
-# mkproj
+# forge
 
-`mkproj` is a Go CLI that turns an empty directory into a fully configured, AI-native project with git, agent instructions, Beads, guard hooks, quality gates, and an initial walking skeleton.
+`forge` is a Go CLI that turns an empty directory into a fully configured, AI-native project with git, agent instructions, Beads, guard hooks, quality gates, and an initial walking skeleton.
 
 This repository is the generator itself. It owns the embedded templates, stack snapshots, security floor, gate pipeline, and maintainer refresh workflow.
 
@@ -23,13 +23,13 @@ Each shipped stack is expected to scaffold a repo that can run `mise install` an
 
 ```mermaid
 flowchart LR
-  A[Contributor runs mkproj init] --> B[Catalog resolves stack]
+  A[Contributor runs forge init] --> B[Catalog resolves stack]
   B --> C[Init orchestrates scaffold]
   C --> D[Common templates applied]
   C --> E[Golden stack snapshot applied]
   D --> F[Generated repo with hooks, Beads, gates, tests]
   E --> F
-  G[Maintainer runs mkproj update] --> H[sources.yaml recipe selected]
+  G[Maintainer runs forge update] --> H[sources.yaml recipe selected]
   H --> I[Upstream template regenerated]
   I --> E
 ```
@@ -38,11 +38,11 @@ flowchart LR
 
 ### Prerequisites
 
-To build `mkproj` locally:
+To build `forge` locally:
 
 - Go `1.24.x`
 
-To run `mkproj init` end to end, you also need:
+To run `forge init` end to end, you also need:
 
 - `git`
 - `bd`
@@ -103,10 +103,10 @@ make uninstall
 make uninstall BINDIR=/custom/bin
 ```
 
-For one-off runs during development without writing `bin/mkproj`:
+For one-off runs during development without writing `bin/forge`:
 
 ```bash
-go run ./cmd/mkproj
+go run ./cmd/forge
 ```
 
 ### Quickstart
@@ -116,7 +116,7 @@ From an empty destination directory:
 ```bash
 mkdir sample-app
 cd sample-app
-go run /path/to/agentic_template_start/cmd/mkproj init \
+go run /path/to/agentic_template_start/cmd/forge init \
   --project-name "Sample App" \
   --language go \
   --project-type cli \
@@ -138,13 +138,13 @@ mise run ci
 Interactive:
 
 ```bash
-go run ./cmd/mkproj
+go run ./cmd/forge
 ```
 
 Fully non-interactive:
 
 ```bash
-go run ./cmd/mkproj init \
+go run ./cmd/forge init \
   --project-name "Sample App" \
   --language go \
   --project-type cli \
@@ -173,19 +173,19 @@ Key flags:
 Check whether a generated repo is stale without mutating it:
 
 ```bash
-go run ./cmd/mkproj sync-allowlist --check
+go run ./cmd/forge sync-allowlist --check
 ```
 
 Rewrite only the managed allowlist block:
 
 ```bash
-go run ./cmd/mkproj sync-allowlist
+go run ./cmd/forge sync-allowlist
 ```
 
 Include personal rules explicitly:
 
 ```bash
-go run ./cmd/mkproj sync-allowlist --include-personal
+go run ./cmd/forge sync-allowlist --include-personal
 ```
 
 ### Refresh A Maintained Snapshot
@@ -193,7 +193,7 @@ go run ./cmd/mkproj sync-allowlist --include-personal
 `update` is a maintainer-only path for regenerating vendored stack snapshots from `sources.yaml`.
 
 ```bash
-go run ./cmd/mkproj update --stack go-cli-cobra
+go run ./cmd/forge update --stack go-cli-cobra
 ```
 
 When a stack snapshot changes, re-run the repo test suite before opening a PR:
@@ -204,7 +204,7 @@ GOCACHE=$PWD/.cache/go-build go test ./... -count=1
 
 ## Repository Layout
 
-- `cmd/mkproj/`: CLI entrypoint and end-to-end smoke tests
+- `cmd/forge/`: CLI entrypoint and end-to-end smoke tests
 - `internal/init/`: init lifecycle orchestration
 - `internal/scaffold/`: phase-1 writer and asset composition
 - `internal/allowlist/`: managed-block reconciliation and stale detection
@@ -262,7 +262,7 @@ GOCACHE=$PWD/.cache/go-build go test ./... -count=1
 Focused checks that are often useful while iterating:
 
 ```bash
-GOCACHE=$PWD/.cache/go-build go test ./cmd/mkproj ./internal/allowlist -count=1
+GOCACHE=$PWD/.cache/go-build go test ./cmd/forge ./internal/allowlist -count=1
 GOCACHE=$PWD/.cache/go-build go test ./internal/update -count=1
 GOCACHE=$PWD/.cache/go-build go test ./test -count=1
 bats test/secret-scan.bats
@@ -286,7 +286,7 @@ bats test/secret-scan.bats
 
 ### What To Edit For Common Changes
 
-- CLI behavior: `cmd/mkproj/main.go` and the relevant `internal/*` package
+- CLI behavior: `cmd/forge/main.go` and the relevant `internal/*` package
 - Shared generated repo files: `templates/common/`
 - Stack-specific scaffold output: `templates/golden/<stack>/`
 - Maintainer refresh recipes: `sources.yaml`
@@ -301,8 +301,8 @@ bats test/secret-scan.bats
 
 ### Contribution Invariants
 
-- `mkproj init` MUST keep the empty-directory precondition.
-- Generated repos MUST remain usable without `mkproj` installed.
+- `forge init` MUST keep the empty-directory precondition.
+- Generated repos MUST remain usable without `forge` installed.
 - Guard behavior MUST stay deny-only.
 - Local gates and CI MUST continue to converge on `mise run ci`.
 - Maintainer refresh MUST preserve overlay ownership and deterministic output.

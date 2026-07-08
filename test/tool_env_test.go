@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCommandEnvAddsFallbackMiseDirectoryToPATHForMkproj(t *testing.T) {
+func TestCommandEnvAddsFallbackMiseDirectoryToPATHForForge(t *testing.T) {
 	envRoot := t.TempDir()
 	fallbackRoot := t.TempDir()
 	fallbackMise := filepath.Join(fallbackRoot, "mise")
@@ -25,7 +25,7 @@ func TestCommandEnvAddsFallbackMiseDirectoryToPATHForMkproj(t *testing.T) {
 
 	t.Setenv("PATH", "/usr/bin")
 
-	env := commandEnv(envRoot, "mkproj")
+	env := commandEnv(envRoot, "forge")
 	pathValue := envValue(env, "PATH")
 	if pathValue == "" {
 		t.Fatalf("PATH not found in env: %#v", env)

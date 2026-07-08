@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"mkproj/internal/delegate"
-	"mkproj/internal/project"
+	"forge/internal/delegate"
+	"forge/internal/project"
 )
 
 type PublishOptions struct {

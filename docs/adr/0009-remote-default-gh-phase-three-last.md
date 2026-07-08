@@ -19,10 +19,10 @@ deliberate, surprising choice a future reader will question.
 2. **Phase 3 (remote) runs last**, after every local step succeeds and the lefthook gates are
    wired — so the initial commit + push passes the full pre-commit / pre-push pipeline
    (secret-scan, lint, format, tests) before anything reaches the remote.
-3. **mkproj never auto-deletes a remote.** If `gh repo create` succeeds but the first push
-   fails (gate trips or network), mkproj **leaves the remote**, prints its URL and the
+3. **forge never auto-deletes a remote.** If `gh repo create` succeeds but the first push
+   fails (gate trips or network), forge **leaves the remote**, prints its URL and the
    `git push -u origin <branch>` retry, and mentions `gh repo delete` as the *user's* option.
-   If `gh repo create` itself fails, mkproj reports the reason and leaves a complete
+   If `gh repo create` itself fails, forge reports the reason and leaves a complete
    local-only repo.
 
 ## Considered Options

@@ -12,8 +12,8 @@ import (
 const Version = 1
 
 const (
-	beginMarker = "// BEGIN MKPROJ ALLOW v:"
-	endMarker   = "// END MKPROJ ALLOW"
+	beginMarker = "// BEGIN FORGE ALLOW v:"
+	endMarker   = "// END FORGE ALLOW"
 )
 
 type Status struct {

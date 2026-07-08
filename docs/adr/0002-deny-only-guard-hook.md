@@ -1,6 +1,6 @@
 # Guard hook is a deny-only net; native matcher handles compound allow
 
-**Status:** accepted · 2026-06-17 · amended 2026-06-18 (research correction) · supersedes rule A4 in the mkproj design spec §6
+**Status:** accepted · 2026-06-17 · amended 2026-06-18 (research correction) · supersedes rule A4 in the forge design spec §6
 
 ## Decision
 

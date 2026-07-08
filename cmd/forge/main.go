@@ -13,20 +13,20 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"mkproj"
-	allowlist "mkproj/internal/allowlist"
-	"mkproj/internal/delegate"
-	initcmd "mkproj/internal/init"
-	"mkproj/internal/project"
-	"mkproj/internal/prompt"
-	"mkproj/internal/scaffold"
-	updatepkg "mkproj/internal/update"
+	"forge"
+	allowlist "forge/internal/allowlist"
+	"forge/internal/delegate"
+	initcmd "forge/internal/init"
+	"forge/internal/project"
+	"forge/internal/prompt"
+	"forge/internal/scaffold"
+	updatepkg "forge/internal/update"
 )
 
 var errCancelled = errors.New("cancelled")
 
 func main() {
-	if err := run(os.Args[1:], mkproj.Assets()); err != nil {
+	if err := run(os.Args[1:], forge.Assets()); err != nil {
 		if errors.Is(err, errCancelled) {
 			fmt.Fprintln(os.Stderr, "cancelled")
 			return
@@ -71,7 +71,7 @@ func selectCommand(args []string) (string, []string) {
 }
 
 func runInit(args []string, assets fs.FS) error {
-	flags := flag.NewFlagSet("mkproj init", flag.ContinueOnError)
+	flags := flag.NewFlagSet("forge init", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	var inputs prompt.Inputs
 	flags.StringVar(&inputs.ProjectName, "project-name", "", "Project name")
@@ -123,7 +123,7 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 		return err
 	}
 
-	flags := flag.NewFlagSet("mkproj sync-allowlist", flag.ContinueOnError)
+	flags := flag.NewFlagSet("forge sync-allowlist", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	var checkOnly bool
 	var includePersonal bool
@@ -154,7 +154,7 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 	}
 	if checkOnly {
 		if status.Stale {
-			fmt.Printf("allowlist is %d version(s) behind; run mkproj sync-allowlist\n", status.Embedded-status.CurrentVersion)
+			fmt.Printf("allowlist is %d version(s) behind; run forge sync-allowlist\n", status.Embedded-status.CurrentVersion)
 		}
 		return nil
 	}
@@ -164,7 +164,7 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 }
 
 func runUpdate(args []string, assets fs.FS) error {
-	flags := flag.NewFlagSet("mkproj update", flag.ContinueOnError)
+	flags := flag.NewFlagSet("forge update", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	var stack string
 	flags.StringVar(&stack, "stack", "", "Stack key to refresh")

@@ -1,8 +1,8 @@
-# mkproj — Product Requirements Document
+# forge — Product Requirements Document
 
 **Status:** canonical · 2026-06-20 · **Author:** Peter O'Connor with Claude Code (databricks-claude-opus-4-8)
 
-This is the canonical statement of *why* `mkproj` exists, *who* it is for, and *what* it must
+This is the canonical statement of *why* `forge` exists, *who* it is for, and *what* it must
 achieve. It describes intent and outcomes only — **no mechanism**. For *how* the system works,
 see [`SPEC.md`](./SPEC.md). For *why specific decisions were made*, see [`docs/adr/`](./adr/).
 For *domain vocabulary*, see [`CONTEXT.md`](../CONTEXT.md).
@@ -29,10 +29,10 @@ folder; the result must be a complete, working project with no manual steps afte
 
 ## 3. Users
 
-| User | What they need from mkproj |
+| User | What they need from forge |
 |---|---|
 | **The author (primary)** | Start a new project in one command, with their vetted standards, security floor, and quality gates already enforced — on their own machine. |
-| **A collaborator / junior engineer** | Clone a scaffolded repo and have it open cleanly and work, even without `mkproj` installed. Be unable to accidentally select an unsupported or unvetted configuration. |
+| **A collaborator / junior engineer** | Clone a scaffolded repo and have it open cleanly and work, even without `forge` installed. Be unable to accidentally select an unsupported or unvetted configuration. |
 | **The maintainer (the author, in a second role)** | Refresh the vendored upstream snapshots under control, trusting that a diff means "upstream changed" rather than tool noise — without re-vetting the opinions layered on top. |
 | **Coding agents (Claude Code, Codex)** | Operate inside the scaffolded repo under a consistent safety floor, with the same context and skills available, regardless of which agent. |
 
@@ -71,7 +71,7 @@ folder; the result must be a complete, working project with no manual steps afte
 - **Languages without a written guideline file** (TypeScript, Rust, Bash). A stack ships only
   after its language standard is written down; expansion is follow-on work.
 - **Initializing into a non-empty directory** (no `--force` / `--in-place`).
-- **Auto-deleting a remote** on any failure (an irreversible outward action mkproj never takes).
+- **Auto-deleting a remote** on any failure (an irreversible outward action forge never takes).
 - A graphical UI, a hosted service, or a plugin system.
 
 ## 6. Guiding principles (the "why" behind the product)
@@ -98,4 +98,4 @@ folder; the result must be a complete, working project with no manual steps afte
 
 ---
 
-*Authored By Peter O'Connor with Assistance from Claude Code (databricks-claude-opus-4-8) · 2026-06-20 · mkproj product requirements*
+*Authored By Peter O'Connor with Assistance from Claude Code (databricks-claude-opus-4-8) · 2026-06-20 · forge product requirements*

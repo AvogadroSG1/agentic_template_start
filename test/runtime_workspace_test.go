@@ -9,7 +9,7 @@ import (
 func TestNewWorkspaceRuntimeDirCreatesCacheScopedDirectory(t *testing.T) {
 	repoRoot := t.TempDir()
 
-	dir, err := newWorkspaceRuntimeDir(repoRoot, "mkproj-runtime")
+	dir, err := newWorkspaceRuntimeDir(repoRoot, "forge-runtime")
 	if err != nil {
 		t.Fatalf("newWorkspaceRuntimeDir returned error: %v", err)
 	}

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"mkproj/internal/project"
-	"mkproj/internal/scaffold"
+	"forge/internal/project"
+	"forge/internal/scaffold"
 )
 
 func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
@@ -82,9 +82,9 @@ func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
 		"templates/common/claude/skill-manifest.json.tmpl": {
 			Data: []byte("{\"skills\":[\"productivity/mise\"]}\n"),
 		},
-		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
-		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
-		"templates/gitignore/Python.gitignore":         {Data: []byte("__pycache__/\n")},
+		"templates/common/claude/hooks/secret-scan.sh":          {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":                     {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Python.gitignore":                  {Data: []byte("__pycache__/\n")},
 		"templates/golden/python-cli-typer/pyproject.toml.tmpl": {Data: []byte("[project]\nname = \"app\"\n")},
 	}}
 	init := Initializer{Writer: writer, Runner: runner}

@@ -1,8 +1,8 @@
-# mkproj — Definitive Specification
+# forge — Definitive Specification
 
 **Status:** canonical · 2026-06-20 · **Author:** Peter O'Connor with Claude Code (databricks-claude-opus-4-8)
 
-This is the single authoritative specification of *how* `mkproj` works. It supersedes the five
+This is the single authoritative specification of *how* `forge` works. It supersedes the five
 mini-specs listed in §0. It cites — and does **not** restate — the decision records in
 [`docs/adr/`](./adr/); when a section summarizes a decision in one line, the ADR is the full
 truth. Product intent lives in [`PRD.md`](./PRD.md); domain vocabulary lives in
@@ -46,14 +46,14 @@ floor, not the ceiling).
 
 ## 1. Problem, goal & the one verification test
 
-Every new project costs 10–15 minutes of identical, drift-prone manual setup. `mkproj` collapses
+Every new project costs 10–15 minutes of identical, drift-prone manual setup. `forge` collapses
 that to one command (PRD §1–§2). The **single canonical acceptance test for the product**: run
 init in an empty folder; the result must be indistinguishable from a hand-built project, with no
 manual steps after. Every section below ends in Given/When/Then scenarios; if they pass, the
 slice works.
 
 A key framing finding (system-design §1): **`instill` and `bd` already perform most of the
-scaffolding work**, so `mkproj` *orchestrates* them rather than reimplementing them.
+scaffolding work**, so `forge` *orchestrates* them rather than reimplementing them.
 
 ---
 
@@ -68,15 +68,15 @@ spec is implementation truth; `CONTEXT.md` is the language.
 
 ## 3. Architecture & engine
 
-`mkproj` is a standalone Go binary using `text/template` + `embed.FS`, distributed as an offline,
+`forge` is a standalone Go binary using `text/template` + `embed.FS`, distributed as an offline,
 vendored installed binary (**ADR-0007**). It **owns** templating, verbatim copy, symlink creation,
 permissions, and guard-hook installation; it **delegates** to `bd` and `instill` for what they
 already do well.
 
 ```mermaid
 flowchart TD
-    A["mkproj (picker: language → type → stack)"] --> P1
-    subgraph P1["Phase 1 — Scaffold (mkproj owns)"]
+    A["forge (picker: language → type → stack)"] --> P1
+    subgraph P1["Phase 1 — Scaffold (forge owns)"]
         B["git init + identity"] --> C["Render .tmpl files (text/template, missingkey=error)"]
         C --> D["Copy verbatim files (hooks, settings, base gitignore)"]
         D --> E["Compose golden snapshot: vanilla then overlay-wins"]
@@ -107,7 +107,7 @@ The engine choice, distribution, and offline/vendored posture are recorded in **
 
 ### 4.1 Precondition — strictly empty directory
 
-`mkproj init` refuses to run unless the target directory is empty, ignoring only inert cruft
+`forge init` refuses to run unless the target directory is empty, ignoring only inert cruft
 (`.DS_Store`). No `--force`/`--in-place` in v1 (**ADR-0008**).
 
 ### 4.2 Ordering invariants (load-bearing)
@@ -132,13 +132,13 @@ directory (**ADR-0004**).
 
 `gh repo create` fails → report, remain a complete local-only repo, tell the user how to add a
 remote manually. Repo created but first push fails → leave the remote, print its URL and the
-`git push -u origin <branch>` retry, mention `gh repo delete` as the user's option. mkproj
+`git push -u origin <branch>` retry, mention `gh repo delete` as the user's option. forge
 **never** auto-deletes a remote (**ADR-0009**).
 
 ```gherkin
 Scenario: Init refuses a non-empty directory
   Given the current directory contains a file
-  When the user runs `mkproj init`
+  When the user runs `forge init`
   Then it exits non-zero with "directory not empty" and creates nothing
 
 Scenario: Local-step failure leaves a recoverable partial and no remote
@@ -150,7 +150,7 @@ Scenario: Local-step failure leaves a recoverable partial and no remote
 Scenario: Remote created but first push fails (gate or network)
   Given Phase 3 created the GitHub repo successfully
   When the initial `git push` fails
-  Then mkproj reports the URL and reason, prints the push retry, does NOT delete the remote,
+  Then forge reports the URL and reason, prints the push retry, does NOT delete the remote,
        and leaves the local repo complete
 ```
 
@@ -160,16 +160,16 @@ Scenario: Remote created but first push fails (gate or network)
 
 *(Authoritative: CLI/render contract §2.)*
 
-- `mkproj` — **defaults to `init`** (bare invocation == `mkproj init`).
-- `mkproj init` — scaffold a new project in the current dir (Phases 1–3).
-- `mkproj update` — maintainer-only snapshot refresh (§15).
-- `mkproj sync-allowlist [--check]` — reconciler (§13).
+- `forge` — **defaults to `init`** (bare invocation == `forge init`).
+- `forge init` — scaffold a new project in the current dir (Phases 1–3).
+- `forge update` — maintainer-only snapshot refresh (§15).
+- `forge sync-allowlist [--check]` — reconciler (§13).
 
 ```gherkin
 Scenario: Bare invocation defaults to init
   Given an empty directory
-  When the user runs `mkproj`
-  Then it behaves identically to `mkproj init`
+  When the user runs `forge`
+  Then it behaves identically to `forge init`
 ```
 
 ---
@@ -201,13 +201,13 @@ default). Invalid flag value → fail immediately listing valid choices, never d
 ```gherkin
 Scenario: Derivations from a single project-name seed
   Given the project name "My Cool API"
-  When mkproj resolves the variable set
+  When forge resolves the variable set
   Then BdPrefix == "mycoolapi" And the Python package == "my_cool_api"
        And the C# namespace == "MyCoolApi"
 
 Scenario: Missing required value with no TTY fails loudly
   Given no --stack flag and no TTY
-  When mkproj runs
+  When forge runs
   Then it exits non-zero naming --stack as the missing flag
 
 Scenario: Only v1 stacks are selectable
@@ -266,8 +266,8 @@ rewrites only between its own markers; outside-block and inter-block content is 
 | File | Block | Owner | Reconciled? |
 |---|---|---|---|
 | `AGENTS.md` | beads block | `bd` | bd's own cadence |
-| `AGENTS.md` | `MKPROJ CONVENTIONS` (Co-Authored-By, conventional-comments, <300-line PR norm) | mkproj | **render-once** — no version, no reconciler (v1) |
-| `.claude/settings.local.json` | `MKPROJ ALLOW v:N` | `mkproj sync-allowlist` | versioned + reconciled |
+| `AGENTS.md` | `FORGE CONVENTIONS` (Co-Authored-By, conventional-comments, <300-line PR norm) | forge | **render-once** — no version, no reconciler (v1) |
+| `.claude/settings.local.json` | `FORGE ALLOW v:N` | `forge sync-allowlist` | versioned + reconciled |
 
 Only the allowlist block carries version + reconciler machinery (keeps `rom` scoped to one block).
 
@@ -286,8 +286,8 @@ Scenario: Gitignore merge is deterministic and sectioned
        each section byte-identical to source, and running the merge twice is byte-identical
 
 Scenario: Multiple managed blocks coexist without clobbering
-  Given an AGENTS.md with a beads block, a MKPROJ CONVENTIONS block, and hand-written prose
-  When `mkproj sync-allowlist` runs (targets settings.local.json, not AGENTS.md)
+  Given an AGENTS.md with a beads block, a FORGE CONVENTIONS block, and hand-written prose
+  When `forge sync-allowlist` runs (targets settings.local.json, not AGENTS.md)
   Then AGENTS.md is untouched And only the allowlist block in settings.local.json is rewritten
 
 Scenario: One manifest feeds both agents' skill trees
@@ -303,7 +303,7 @@ Scenario: One manifest feeds both agents' skill trees
 *(Authoritative: ADR-0005; de-staled system-design §4.)*
 
 Each stack is a **golden snapshot** (vanilla, recipe-produced) plus exactly **one**
-`.mkproj-overlay/` (the vetted opinions). The earlier name "security overlay" is **retired** —
+`.forge-overlay/` (the vetted opinions). The earlier name "security overlay" is **retired** —
 audit/security tooling is one *part* of the single overlay, not a separate layer. The composed
 output (vanilla + overlay) must be a **walking skeleton**: it runs end-to-end with ≥1 real passing
 test (CONTEXT.md; ADR-0005). The walking skeleton is an emergent property of composition, not a
@@ -336,10 +336,10 @@ rationale: **ADR-0005**.
 
 ### 9.3 Packaging boundary
 
-Everything under `templates/golden/<key>/.mkproj-overlay/` is the vetted, refresh-immune layer;
+Everything under `templates/golden/<key>/.forge-overlay/` is the vetted, refresh-immune layer;
 everything else under the stack dir is vanilla/refreshable. Overlay files may layer *into* vanilla
 dirs — init composes **vanilla-first, then overlay-wins** on path collision, stripping the
-`.mkproj-overlay/` prefix. The walking-skeleton test ships in the overlay next to the wiring it
+`.forge-overlay/` prefix. The walking-skeleton test ships in the overlay next to the wiring it
 exercises (non-vacuous-test guarantee; §16).
 
 ---
@@ -539,21 +539,21 @@ commit, `ALLOW_VERSION` changed too" (forgot-to-bump backstop).
 
 1. `bd prime` (beads context)
 2. `instill check-skills` (skill-symlink reconciliation)
-3. `mkproj sync-allowlist --check` (staleness notice — advisory, last so most visible)
+3. `forge sync-allowlist --check` (staleness notice — advisory, last so most visible)
 
-Order is for readability; no hook depends on another's output. Every mkproj-authored hook **exits
-0 always** and **no-ops silently if `mkproj` is missing** (`command -v mkproj || exit 0`) — a
-scaffolded repo opens cleanly on a machine without mkproj. The mutating `mkproj sync-allowlist`
+Order is for readability; no hook depends on another's output. Every forge-authored hook **exits
+0 always** and **no-ops silently if `forge` is missing** (`command -v forge || exit 0`) — a
+scaffolded repo opens cleanly on a machine without forge. The mutating `forge sync-allowlist`
 (no `--check`) stays human-invoked; the `--check` hook never mutates and never blocks.
 
 ```gherkin
 Scenario: Stale allowlist notifies without blocking
   Given a managed block at v:5 and embedded ALLOW_VERSION = 7
-  When the SessionStart hook runs `mkproj sync-allowlist --check`
+  When the SessionStart hook runs `forge sync-allowlist --check`
   Then it prints a "2 versions behind" notice, exits 0, and the managed block is unchanged
 
-Scenario: Missing mkproj binary never breaks session start and is silent
-  Given a collaborator's machine without mkproj on PATH
+Scenario: Missing forge binary never breaks session start and is silent
+  Given a collaborator's machine without forge on PATH
   When SessionStart fires the sync-allowlist --check hook
   Then the hook exits 0 and prints nothing And bd prime + instill check-skills still ran
 ```
@@ -566,7 +566,7 @@ Scenario: Missing mkproj binary never breaks session start and is silent
 
 Beyond permissions, every scaffolded repo ships: an **ADR scaffold** (`docs/adr/` + MADR template);
 a **`CONTEXT.md` glossary stub**; **Codex full parity** (shared guard, allowlist equivalent, skill
-access — not just `bd prime`); a **`MKPROJ CONVENTIONS` block** in `AGENTS.md` (Co-Authored-By
+access — not just `bd prime`); a **`FORGE CONVENTIONS` block** in `AGENTS.md` (Co-Authored-By
 footer, conventional-comments, <300-line PR norm); and **gitignored instill artifacts**
 (`.claude/skills/` + `.agents/skills/` symlinks machine-local; `skill-manifest.json` committed).
 
@@ -576,11 +576,11 @@ footer, conventional-comments, <300-line PR norm); and **gitignored instill arti
 
 *(Authoritative: CLI/render contract §8; cites ADR-0005, ADR-0006. Maintainer-only, online.)*
 
-`mkproj update` refreshes all stacks by default; `--stack <key>` scopes to one. Each run: execute
+`forge update` refreshes all stacks by default; `--stack <key>` scopes to one. Each run: execute
 the recipe's ordered steps (`checkout`/`run`, with per-step `strip:` on a `checkout`) in a temp dir (`369`) → run the per-stack
 normalization pass over the **vanilla layer only** → write the snapshot into
 `templates/golden/<key>/` → re-pin `sources.yaml`. It **regenerates vanilla only — never
-`.mkproj-overlay/`** — and **fails loudly** naming any missing native scaffolder. Rebuilding the
+`.forge-overlay/`** — and **fails loudly** naming any missing native scaffolder. Rebuilding the
 binary is a separate manual step after the maintainer reviews the diff.
 
 **Determinism (ADR-0006):** contracted by an **idempotence test**, not an exhaustive up-front rule
@@ -593,13 +593,13 @@ overlay path) = loud warn, complete the write (overlay-wins still correct).
 ```gherkin
 Scenario: Update refreshes the snapshot but preserves the overlay
   Given the maintainer repo with a pinned go-cli-cobra snapshot and overlay
-  When `mkproj update --stack go-cli-cobra` runs
+  When `forge update --stack go-cli-cobra` runs
   Then templates/golden/go-cli-cobra/ reflects new output
-       And .../go-cli-cobra/.mkproj-overlay/ is byte-identical And sources.yaml records the ref/SHA
+       And .../go-cli-cobra/.forge-overlay/ is byte-identical And sources.yaml records the ref/SHA
 
 Scenario: Update is idempotent when upstream is unchanged
-  When the maintainer runs `mkproj update --stack <key>` twice with no upstream change
-  Then templates/golden/<key>/ is byte-identical And .mkproj-overlay/ is untouched
+  When the maintainer runs `forge update --stack <key>` twice with no upstream change
+  Then templates/golden/<key>/ is byte-identical And .forge-overlay/ is untouched
        And git diff is empty
 
 Scenario: Refresh seam fails loud on an orphaned overlay file
@@ -621,7 +621,7 @@ Two tiers prove the "indistinguishable from hand-built" promise. Because `mise r
 
 ### 16.1 Local smoke (every run, hermetic, offline)
 
-`mkproj init --stack <key> --remote none` (the primary consumer of `--remote none`) → `mise
+`forge init --stack <key> --remote none` (the primary consumer of `--remote none`) → `mise
 install` → `mise run ci` exits 0 → clean initial commit through pre-commit gates → **assert no
 network access occurred**.
 
@@ -632,7 +632,7 @@ network access occurred**.
 ### 16.3 Smoke teardown — ephemeral by construction (no leaked artifacts)
 
 The full-tier smoke **creates its repo under a dedicated throwaway namespace** (e.g.
-`mkproj-smoke-<runid>`), runs its assertions, then **deletes the repo in a `trap`/`defer` so
+`forge-smoke-<runid>`), runs its assertions, then **deletes the repo in a `trap`/`defer` so
 teardown fires even on mid-test failure**, and finally **asserts the repo no longer exists**
 (cleanup is verified, not assumed).
 
@@ -644,7 +644,7 @@ teardown fires even on mid-test failure**, and finally **asserts the repo no lon
 ```gherkin
 Scenario: Local smoke proves a scaffolded stack works offline
   Given an empty dir
-  When `mkproj init --stack <key> --remote none`, then `mise install`, then `mise run ci`
+  When `forge init --stack <key> --remote none`, then `mise install`, then `mise run ci`
   Then the repo contains mise.toml, lefthook.yml, and ci.yml
        And `mise run ci` exits 0 (running >=1 real test)
        And an initial commit succeeds through the pre-commit gates
@@ -673,8 +673,8 @@ Roles: **[embed]** compiled in · **[render]** templated at init · **[verbatim]
 **[link]** symlinked · **[delegate]** produced by `bd`/`instill`/native tooling.
 
 ```
-mkproj/                              # source repo
-├── cmd/mkproj/main.go               # CLI entrypoint: init (default), update, sync-allowlist
+forge/                              # source repo
+├── cmd/forge/main.go               # CLI entrypoint: init (default), update, sync-allowlist
 ├── internal/
 │   ├── scaffold/                    # Phase 1: render, copy, symlink, settings, guard
 │   ├── delegate/                    # Phase 2: shell out to bd + instill + lefthook install
@@ -691,7 +691,7 @@ mkproj/                              # source repo
 │   │   ├── codex/hooks.json         # [verbatim]
 │   │   └── skill-manifest.json.tmpl # [render]
 │   ├── gitignore/                   # [embed] vendored github/gitignore per language
-│   └── golden/<key>/                # [embed] pinned snapshots + .mkproj-overlay/ per v1 stack
+│   └── golden/<key>/                # [embed] pinned snapshots + .forge-overlay/ per v1 stack
 └── docs/                            # PRD.md, SPEC.md, adr/, handoffs/, superpowers/
 
 # Scaffolded output (what the verification test inspects):
@@ -715,9 +715,9 @@ Feature's `all-children` gate IS the seam test.)*
 
 | Seam | Components | Owning test (where it lives) | Scheduling |
 |---|---|---|---|
-| **Composition** | `83n` (contract) × `iha` (Phase-1 writer) × `3tt` (catalog assets) × `yuw` (common assets) × `s5x` (init entrypoint that invokes composition end-to-end) | **Walking-skeleton Feature gate**: `mkproj init --stack <key> --remote none` composes correctly → `mise run ci` green → ≥1 real test passes, offline. MAY prove with one stack first; MUST cover all six to close. | Feature `all-children` gate; pulled forward as the first user-visible milestone. |
+| **Composition** | `83n` (contract) × `iha` (Phase-1 writer) × `3tt` (catalog assets) × `yuw` (common assets) × `s5x` (init entrypoint that invokes composition end-to-end) | **Walking-skeleton Feature gate**: `forge init --stack <key> --remote none` composes correctly → `mise run ci` green → ≥1 real test passes, offline. MAY prove with one stack first; MUST cover all six to close. | Feature `all-children` gate; pulled forward as the first user-visible milestone. |
 | **CI resolves** | `ud1` (CI workflow) × `x2k` (mise `ci` task) | **Gate-pipeline Feature gate**: every shipped overlay's `mise.toml` defines a `ci` task that `mise run ci` resolves to, across all v1 stacks. | Feature `all-children` gate. |
-| **Update idempotence** | `369` (steps interpreter) × `cjl` (normalization/refresh) | **Maintainer-refresh Feature gate**: `mkproj update --stack <key>` run twice with no upstream change → `templates/golden/<key>/` byte-identical, overlay untouched, git diff empty. | Feature `all-children` gate. |
+| **Update idempotence** | `369` (steps interpreter) × `cjl` (normalization/refresh) | **Maintainer-refresh Feature gate**: `forge update --stack <key>` run twice with no upstream change → `templates/golden/<key>/` byte-identical, overlay untouched, git diff empty. | Feature `all-children` gate. |
 | **Conformance fixture** | `zz8` (publish guidelines) → `ebp` (conformance test) | Precondition, not a composition seam: `ebp` can resolve the three guideline files at their canonical path. | Plain `blockedBy` edge (`ebp` blocked-by `zz8`). |
 | **Chain-mode hooks** | `485` (verify beads hooks survive `lefthook install`) → `x2k` (real multi-job lefthook) | `485` proves chain mode in isolation; the local smoke (§16.1) exercises pre-commit/pre-push at runtime without duplicating the `485` proof. | `x2k` blocked-by `485` (existing edge). |
 
@@ -725,7 +725,7 @@ Feature's `all-children` gate IS the seam test.)*
 
 ```mermaid
 flowchart TD
-    EPIC["EPIC: mkproj v1 — one command → a complete AI-native project"]
+    EPIC["EPIC: forge v1 — one command → a complete AI-native project"]
 
     subgraph F1["FEATURE: Walking-skeleton scaffold (gate = composition seam test)"]
         S83["83n contract"] & SIHA["iha Phase-1 writer"] & S3TT["3tt catalog assets"] & SYUW["yuw common assets"] & SS5X["s5x init entrypoint"]
@@ -746,4 +746,4 @@ flowchart TD
 
 ---
 
-*Authored By Peter O'Connor with Assistance from Claude Code (databricks-claude-opus-4-8) · 2026-06-20 · mkproj definitive specification*
+*Authored By Peter O'Connor with Assistance from Claude Code (databricks-claude-opus-4-8) · 2026-06-20 · forge definitive specification*

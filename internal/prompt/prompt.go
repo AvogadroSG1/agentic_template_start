@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"mkproj/internal/catalog"
-	"mkproj/internal/project"
+	"forge/internal/catalog"
+	"forge/internal/project"
 )
 
 type Prompter interface {

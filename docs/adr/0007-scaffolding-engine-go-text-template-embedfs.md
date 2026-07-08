@@ -4,7 +4,7 @@
 
 ## Context
 
-`mkproj` must turn an empty directory into a fully configured project offline, with no
+`forge` must turn an empty directory into a fully configured project offline, with no
 clone step and no machine-path dependency. The engine choice — what does the templating,
 where the assets live, and how the tool is distributed — is the most foundational
 architectural decision in the system, yet it lived only as a decision table in the
@@ -12,11 +12,11 @@ architectural decision in the system, yet it lived only as a decision table in t
 
 ## Decision
 
-`mkproj` is a **standalone Go binary** that renders with the standard library's
+`forge` is a **standalone Go binary** that renders with the standard library's
 **`text/template`** and embeds every template and asset via **`embed.FS`**. It is
-distributed as an **installed binary** (`~/.local/bin/mkproj`) with all assets compiled in,
-so `mkproj init` is fully **offline and reproducible**. Assets are **vendored + refreshable**:
-init never reaches the network, and the maintainer-only `mkproj update` path re-fetches and
+distributed as an **installed binary** (`~/.local/bin/forge`) with all assets compiled in,
+so `forge init` is fully **offline and reproducible**. Assets are **vendored + refreshable**:
+init never reaches the network, and the maintainer-only `forge update` path re-fetches and
 re-pins upstreams (see ADR-0005, ADR-0006).
 
 ## Considered Options
@@ -40,7 +40,7 @@ re-pins upstreams (see ADR-0005, ADR-0006).
 - `text/template` is the render contract: a missing variable is `missingkey=error` (hard fail,
   never `<no value>`); the `.tmpl` suffix marks renderable files; everything else is copied
   verbatim (CLI/render contract §4).
-- Refreshing vendored assets requires the `mkproj` binary present on the maintainer machine
+- Refreshing vendored assets requires the `forge` binary present on the maintainer machine
   (the same constraint ADR-0001 places on the allowlist reconciler).
-- `mkproj` is a sibling to the author's existing `gw`/`instill` Go tools — one toolchain,
+- `forge` is a sibling to the author's existing `gw`/`instill` Go tools — one toolchain,
   one install pattern.

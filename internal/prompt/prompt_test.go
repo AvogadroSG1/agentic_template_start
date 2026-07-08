@@ -3,7 +3,7 @@ package prompt
 import (
 	"testing"
 
-	"mkproj/internal/project"
+	"forge/internal/project"
 )
 
 type promptCall struct {

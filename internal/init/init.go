@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mkproj/internal/delegate"
-	"mkproj/internal/project"
-	"mkproj/internal/remote"
-	"mkproj/internal/scaffold"
+	"forge/internal/delegate"
+	"forge/internal/project"
+	"forge/internal/remote"
+	"forge/internal/scaffold"
 )
 
 type Initializer struct {

@@ -15,3 +15,7 @@ bin/
 .claude/backups/
 **DS_Store**
 .claude/.DS_Store
+
+# Build outputs
+/forge
+/mkproj

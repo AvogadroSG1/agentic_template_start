@@ -23,12 +23,12 @@ var fallbackExecutableCandidates = map[string][]string{
 
 func commandEnv(envRoot string, command string) []string {
 	switch filepath.Base(command) {
-	case "mkproj":
-		return ensureFallbackPATH(append(os.Environ(), "MKPROJ_RUNTIME_ROOT="+envRoot), "mise")
+	case "forge":
+		return ensureFallbackPATH(append(os.Environ(), "FORGE_RUNTIME_ROOT="+envRoot), "mise")
 	case "mise", "dotnet":
 		homeDir := filepath.Join(envRoot, "home")
 		env := append(os.Environ(),
-			"MKPROJ_RUNTIME_ROOT="+envRoot,
+			"FORGE_RUNTIME_ROOT="+envRoot,
 			"HOME="+homeDir,
 			"GOCACHE="+filepath.Join(envRoot, "go-build"),
 			"GOMODCACHE="+filepath.Join(envRoot, "go-mod"),
@@ -55,7 +55,7 @@ func commandEnv(envRoot string, command string) []string {
 
 func prepareCommandEnv(envRoot string, command string) error {
 	switch filepath.Base(command) {
-	case "mkproj":
+	case "forge":
 		return nil
 	case "mise", "dotnet":
 		homeDir := filepath.Join(envRoot, "home")

@@ -1,6 +1,6 @@
 # Agent Instructions for {{ .ProjectName }}
 
-This repository was scaffolded by `mkproj`.
+This repository was scaffolded by `forge`.
 
 ## Working Agreement
 
@@ -10,11 +10,11 @@ This repository was scaffolded by `mkproj`.
 - Keep shell operations non-interactive so agent runs do not hang (`cp -f`, `mv -f`, `rm -f`).
 - Treat `CLAUDE.md` as a symlink to this file so Claude Code and Codex share one instruction source.
 
-<!-- BEGIN MKPROJ CONVENTIONS -->
-## MKPROJ CONVENTIONS
+<!-- BEGIN FORGE CONVENTIONS -->
+## FORGE CONVENTIONS
 
 - Agent-assisted commits SHOULD include explicit `Co-Authored-By` footers for the human author and the agent/tool that produced the change.
 - Human authorship SHOULD use `Co-Authored-By: {{ .AuthorName }} <{{ .AuthorEmail }}>`.
 - Review feedback SHOULD use Conventional Comments.
 - Pull requests SHOULD stay under 300 changed lines when practical.
-<!-- END MKPROJ CONVENTIONS -->
+<!-- END FORGE CONVENTIONS -->

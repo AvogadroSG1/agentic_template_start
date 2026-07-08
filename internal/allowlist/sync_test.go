@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"mkproj"
+	"forge"
 )
 
 func TestDetectReportsStaleManagedBlocks(t *testing.T) {
 	t.Parallel()
 
-	status, err := Detect(`"// BEGIN MKPROJ ALLOW v:0",` + "\n" + `"Bash(old:*)",` + "\n" + `"// END MKPROJ ALLOW",` + "\n")
+	status, err := Detect(`"// BEGIN FORGE ALLOW v:0",` + "\n" + `"Bash(old:*)",` + "\n" + `"// END FORGE ALLOW",` + "\n")
 	if err != nil {
 		t.Fatalf("Detect() error = %v", err)
 	}
@@ -24,7 +24,7 @@ func TestDetectReportsStaleManagedBlocks(t *testing.T) {
 func TestDetectRejectsMalformedManagedBlockVersions(t *testing.T) {
 	t.Parallel()
 
-	_, err := Detect(`"// BEGIN MKPROJ ALLOW v:nope",` + "\n" + `"// END MKPROJ ALLOW",` + "\n")
+	_, err := Detect(`"// BEGIN FORGE ALLOW v:nope",` + "\n" + `"// END FORGE ALLOW",` + "\n")
 	if err == nil || !strings.Contains(err.Error(), "invalid managed block version") {
 		t.Fatalf("Detect() error = %v, want invalid managed block version", err)
 	}
@@ -38,9 +38,9 @@ func TestSyncRewritesOnlyTheManagedBlock(t *testing.T) {
 	original := `{
   "permissions": {
     "allow": [
-      "// BEGIN MKPROJ ALLOW v:0",
+      "// BEGIN FORGE ALLOW v:0",
       "Bash(old:*)",
-      "// END MKPROJ ALLOW",
+      "// END FORGE ALLOW",
       "Bash(true)"
     ]
   },
@@ -82,9 +82,9 @@ func TestInferLanguageUsesOnlyTheManagedBlock(t *testing.T) {
   "note": "Bash(python:*) belongs in docs only",
   "permissions": {
     "allow": [
-      "// BEGIN MKPROJ ALLOW v:1",
+      "// BEGIN FORGE ALLOW v:1",
       "Bash(go:*)",
-      "// END MKPROJ ALLOW",
+      "// END FORGE ALLOW",
       "Bash(true)"
     ]
   }
@@ -106,9 +106,9 @@ func TestInferLanguageRejectsMissingManagedBlockLanguageMarkers(t *testing.T) {
 	contents := `{
   "permissions": {
     "allow": [
-      "// BEGIN MKPROJ ALLOW v:1",
+      "// BEGIN FORGE ALLOW v:1",
       "Bash(git status:*)",
-      "// END MKPROJ ALLOW",
+      "// END FORGE ALLOW",
       "Bash(true)"
     ]
   }
@@ -124,7 +124,7 @@ func TestInferLanguageRejectsMissingManagedBlockLanguageMarkers(t *testing.T) {
 func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
 	t.Parallel()
 
-	defaultBlock, err := CanonicalBlock(mkproj.Assets(), "go", false)
+	defaultBlock, err := CanonicalBlock(forge.Assets(), "go", false)
 	if err != nil {
 		t.Fatalf("CanonicalBlock(default) error = %v", err)
 	}
@@ -132,7 +132,7 @@ func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
 		t.Fatalf("CanonicalBlock(default) unexpectedly included personal rules:\n%s", defaultBlock)
 	}
 
-	personalBlock, err := CanonicalBlock(mkproj.Assets(), "go", true)
+	personalBlock, err := CanonicalBlock(forge.Assets(), "go", true)
 	if err != nil {
 		t.Fatalf("CanonicalBlock(include personal) error = %v", err)
 	}

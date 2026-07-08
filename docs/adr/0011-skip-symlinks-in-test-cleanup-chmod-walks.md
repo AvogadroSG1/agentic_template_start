@@ -4,7 +4,7 @@
 
 ## Context
 
-Integration tests create isolated runtime directories under `.cache/local-release/mkproj-runtime-*`
+Integration tests create isolated runtime directories under `.cache/local-release/forge-runtime-*`
 and register a `t.Cleanup` that walks the directory tree with `filepath.WalkDir`, restores
 permissions (0755 dirs, 0644 files), then calls `os.RemoveAll`. The permission restoration
 exists because mise and scaffolded projects may restrict file permissions during their runs,
@@ -16,7 +16,7 @@ During `mise install`, mise records which config files it trusts by creating sym
 repo root's `mise.toml` is discovered by mise, the symlink target is the **repo root itself**:
 
 ```
-.cache/local-release/mkproj-runtime-*/mise-state/trusted-configs/<hash>
+.cache/local-release/forge-runtime-*/mise-state/trusted-configs/<hash>
   → /path/to/agentic_template_start        ← repo root
 ```
 

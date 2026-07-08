@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"mkproj/internal/project"
+	"forge/internal/project"
 )
 
 type Writer struct {
@@ -31,7 +31,7 @@ func (w Writer) Write(targetDir string, vars project.Variables) error {
 		return err
 	}
 
-	overlayRoot := filepath.ToSlash(filepath.Join(stackRoot, ".mkproj-overlay"))
+	overlayRoot := filepath.ToSlash(filepath.Join(stackRoot, ".forge-overlay"))
 	if err := w.copyTree(overlayRoot, targetDir, vars); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
@@ -83,10 +83,10 @@ func (w Writer) copyTree(root string, targetDir string, vars project.Variables) 
 		if path == "." {
 			return nil
 		}
-		if path == ".mkproj-overlay" {
+		if path == ".forge-overlay" {
 			return fs.SkipDir
 		}
-		if strings.HasPrefix(path, ".mkproj-overlay/") {
+		if strings.HasPrefix(path, ".forge-overlay/") {
 			return fs.SkipDir
 		}
 

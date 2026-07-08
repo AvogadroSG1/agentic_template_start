@@ -1,10 +1,10 @@
-# mkproj update determinism is enforced by an idempotence test; the refresh seam fails loud
+# forge update determinism is enforced by an idempotence test; the refresh seam fails loud
 
 **Status:** accepted · 2026-06-20
 
 ## Context
 
-`mkproj update` (maintainer-only, online) regenerates a stack's vanilla layer from its
+`forge update` (maintainer-only, online) regenerates a stack's vanilla layer from its
 recipe (ADR-0005) and re-pins `sources.yaml`. `cjl`'s requirement is that refresh output be
 "deterministic enough to rebuild the binary from committed sources" — concretely, a re-run
 with no upstream change must produce a **byte-identical** `templates/golden/<key>/` tree, so
@@ -35,9 +35,9 @@ acceptance gate is:
 
 ```gherkin
 Scenario: update is idempotent when upstream is unchanged
-  When the maintainer runs `mkproj update --stack <key>` twice with no upstream change
+  When the maintainer runs `forge update --stack <key>` twice with no upstream change
   Then templates/golden/<key>/ is byte-identical to the committed tree
-   And .mkproj-overlay/ is untouched (byte-identical)
+   And .forge-overlay/ is untouched (byte-identical)
    And git diff is empty
 ```
 
@@ -72,7 +72,7 @@ vanilla, `update` checks committed overlay paths against the new vanilla tree:
 ## Consequences
 
 - `update` needs the normalization pass plus a seam-check that walks the committed
-  `.mkproj-overlay/` against the regenerated vanilla tree — no new manifest, since the overlay
+  `.forge-overlay/` against the regenerated vanilla tree — no new manifest, since the overlay
   dir is already the source of truth for expected layout.
 - The idempotence test is the gate `cjl` must pass to close; `3tt`'s vendored snapshots must
   already be normalized so the first committed state is the fixed point.
