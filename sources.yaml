@@ -65,7 +65,7 @@ python-fastapi:
 csharp-cli:
   kind: scaffolder
   steps:
-    - run: "dotnet new console --framework net8.0"
+    - run: "dotnet new console --framework net10.0"
     - run: "dotnet add package System.CommandLine --version 2.0.0-beta4.22272.1"
   gitignore: VisualStudio
   normalize:
@@ -81,7 +81,7 @@ csharp-cli:
 csharp-webapi:
   kind: scaffolder
   steps:
-    - run: "dotnet new webapi --framework net8.0 --use-controllers"
+    - run: "dotnet new webapi --framework net10.0 --use-controllers"
   gitignore: VisualStudio
   normalize:
     - type: line_endings
