@@ -18,6 +18,8 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: jdx/mise-action@v2
+      - name: Install bd (beads)
+        run: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
       - run: make verify-fast
 
   slow-gate:
@@ -33,6 +35,8 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: jdx/mise-action@v2
+      - name: Install bd (beads)
+        run: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
       - run: >
           GOCACHE=$GITHUB_WORKSPACE/.cache/go-build
           go test -tags=integration -count=1 -timeout=10m
