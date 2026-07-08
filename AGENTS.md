@@ -1,11 +1,11 @@
 # Agent Instructions
 
-This file is the project-specific guide for working on the `mkproj` generator itself. `CLAUDE.md` is a symlink to this file so Claude Code and Codex read the same instructions.
+This file is the project-specific guide for working on the `forge` generator itself. `CLAUDE.md` is a symlink to this file so Claude Code and Codex read the same instructions.
 
 ## WHAT
 
-- `mkproj` is a Go `1.24.x` CLI that scaffolds AI-native repositories from embedded assets.
-- `cmd/mkproj/main.go` owns the command surface: `init`, `sync-allowlist`, and `update`.
+- `forge` is a Go `1.24.x` CLI that scaffolds AI-native repositories from embedded assets.
+- `cmd/forge/main.go` owns the command surface: `init`, `sync-allowlist`, and `update`.
 - `internal/init/` orchestrates project creation; `internal/scaffold/` writes and composes assets; `internal/allowlist/` owns the managed block reconciler; `internal/update/` owns maintainer refresh.
 - `templates/common/` holds assets that every generated repo receives.
 - `templates/golden/<stack>/` holds the shipped v1 stack snapshots and overlays.
@@ -14,8 +14,8 @@ This file is the project-specific guide for working on the `mkproj` generator it
 
 ## WHY
 
-- This repo exists to make `mkproj init` produce a complete working repository with no manual follow-up.
-- The generator MUST preserve the core product invariants: empty-directory init, generated repos that work without `mkproj` installed, a deny-only guard, and one shared gate pipeline used locally and in CI.
+- This repo exists to make `forge init` produce a complete working repository with no manual follow-up.
+- The generator MUST preserve the core product invariants: empty-directory init, generated repos that work without `forge` installed, a deny-only guard, and one shared gate pipeline used locally and in CI.
 - Root `AGENTS.md` is for contributors working on the generator. Generated repositories get their own instructions from `templates/common/AGENTS.md.tmpl`.
 - Contributors MUST keep generator behavior, shipped templates, and contributor-facing docs aligned so downstream repos do not drift from the documented workflow.
 
@@ -40,12 +40,12 @@ bd ready
 bd show <id>
 bd update <id> --claim
 GOCACHE=$PWD/.cache/go-build go test ./... -count=1
-go build ./cmd/mkproj
+go build ./cmd/forge
 ```
 
 ### File Ownership Cues
 
-- Edit root `AGENTS.md` when changing how contributors should work on `mkproj`.
+- Edit root `AGENTS.md` when changing how contributors should work on `forge`.
 - Edit `templates/common/AGENTS.md.tmpl` when changing what scaffolded repos should tell agents.
 - Edit `templates/common/` for shared generated assets.
 - Edit `templates/golden/` and `sources.yaml` together when changing shipped stack behavior or maintainer refresh inputs.

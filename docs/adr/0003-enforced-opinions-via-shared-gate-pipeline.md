@@ -6,7 +6,7 @@
 
 Templates don't just *include* lint/format/test tools — they **enforce** them. The
 author's language guideline files (`golang.md`, `python.md`, `csharp.md`) are the
-**canonical source of truth** for which tools a template's `.mkproj-overlay/` installs; a
+**canonical source of truth** for which tools a template's `.forge-overlay/` installs; a
 lightweight template test asserts conformance. v1 ships **only** the languages with
 guideline files: **Go, Python, C#** (TS/Rust/Bash deferred until their guidelines exist).
 
@@ -22,7 +22,7 @@ Enforcement uses **one gate definition, multiple callers**:
 ## Considered Options
 
 - **Config-present only (L1)** — ship tool configs, run nothing automatically. Rejected:
-  recreates "remember to wire it up," the exact fatigue mkproj exists to kill.
+  recreates "remember to wire it up," the exact fatigue forge exists to kill.
 - **Inline CI gates** — duplicate gate logic in `ci.yml` and `lefthook.yml`. Rejected
   after discussion: reintroduces local/CI drift the rest of the design eliminates.
 - **Templates without guideline source of truth** — let TS/Rust/Bash encode ecosystem

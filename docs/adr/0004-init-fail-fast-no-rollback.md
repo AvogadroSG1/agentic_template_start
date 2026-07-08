@@ -1,27 +1,27 @@
-# mkproj init is fail-fast with no transactional rollback
+# forge init is fail-fast with no transactional rollback
 
 **Status:** accepted · 2026-06-19
 
 ## Context
 
-`mkproj init` is a multi-step mutation: Phase 1 (render/copy/link) → guard install →
+`forge init` is a multi-step mutation: Phase 1 (render/copy/link) → guard install →
 `bd init` → `instill init`/`pick-skills`/`check-skills` → `lefthook install` → Phase 3
 remote. Any step can fail (a delegated tool errors, a network hiccup, bad input). The
-question is what state the target directory is left in, and whether mkproj should undo its
+question is what state the target directory is left in, and whether forge should undo its
 own work.
 
 Two facts shape the answer:
 
-1. **`mkproj init` requires an empty directory** (ADR-0008; the strict precondition). The
-   entire resulting tree is therefore mkproj's own creation.
+1. **`forge init` requires an empty directory** (ADR-0008; the strict precondition). The
+   entire resulting tree is therefore forge's own creation.
 2. **Phase 3 (remote creation) runs last**, after every local step succeeds, so the only step
    with an external side effect cannot fire before a local-step failure (ADR-0009).
 
 ## Decision
 
-On any step failure, `mkproj init` **stops at that step, leaves the partial state in place,
+On any step failure, `forge init` **stops at that step, leaves the partial state in place,
 and prints the failed step plus a single recovery command** (recursive-force-delete the
-directory, then retry). There is **no transactional rollback** — mkproj does not track and
+directory, then retry). There is **no transactional rollback** — forge does not track and
 unwind its mutations.
 
 ## Considered Options
@@ -34,7 +34,7 @@ unwind its mutations.
   *more* surprising than none.
 - **Best-effort, silent partial** — stop and leave the mess with no guidance. Rejected: a
   confusing half-built directory with no instruction violates the "fail loud, name the thing"
-  posture used everywhere else in mkproj.
+  posture used everywhere else in forge.
 
 ## Consequences
 

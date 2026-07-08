@@ -13,7 +13,7 @@ set. There is no single command whose output is the snapshot.
 
 This broke two downstream contracts:
 
-1. The `mkproj update` model (prompt-render-contract §8) assumed "invoke the pinned native
+1. The `forge update` model (prompt-render-contract §8) assumed "invoke the pinned native
    scaffolder in a temp dir" — a single tool.
 2. `sources.yaml` had no defined row shape, so the engineer vendoring assets (`3tt`) could
    not author six consistent rows.
@@ -48,10 +48,10 @@ go-api-chi:
 ```
 
 **2. "Walking skeleton" is the acceptance guarantee on the composed (vanilla + overlay)
-output, not a third layer.** After `mkproj init` the repo runs and has ≥1 real passing
+output, not a third layer.** After `forge init` the repo runs and has ≥1 real passing
 test. The vanilla/overlay split is preserved beneath it: the vanilla layer is
 recipe-produced and refreshable; the wiring that makes it *walk* (router, logger, the one
-green handler test) lives in `.mkproj-overlay/` so `update` can refresh vanilla without
+green handler test) lives in `.forge-overlay/` so `update` can refresh vanilla without
 re-vetting the wiring.
 
 **3. C# maps to `VisualStudio.gitignore`** — GitHub's canonical .NET ignore file — rather
@@ -75,7 +75,7 @@ than a hand-curated in-repo file, to stay refreshable from upstream.
 
 ## Consequences
 
-- `mkproj update` needs a small `steps` interpreter (`run` / `checkout` / `strip`). This is
+- `forge update` needs a small `steps` interpreter (`run` / `checkout` / `strip`). This is
   maintainer-path code, run occasionally, never at init — complexity stays off the hot path.
 - `3tt` fills one row template six times and commits one skeleton tree per stack; the
   walking-skeleton test ships in each stack's overlay (satisfying the non-vacuous-test
