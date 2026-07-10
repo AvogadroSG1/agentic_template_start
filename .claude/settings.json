@@ -33,7 +33,7 @@
           },
           {
             "type": "command",
-            "command": "instill check-skills || true"
+            "command": "instill sync || true"
           },
           {
             "type": "command",

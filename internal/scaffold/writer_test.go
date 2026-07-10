@@ -98,7 +98,7 @@ func TestWriterFailsBeforeWritingPartialTemplatesOnMissingVariables(t *testing.T
 	}
 }
 
-func TestWriterRendersPythonPackageAndLanguageScopedManifestFromEmbeddedTemplates(t *testing.T) {
+func TestWriterRendersPythonPackageFromEmbeddedTemplates(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -126,12 +126,8 @@ func TestWriterRendersPythonPackageAndLanguageScopedManifestFromEmbeddedTemplate
 	assertFileContains(t, filepath.Join(tempDir, "docs", "adr", "0000-template.md"), "# ADR 0000")
 
 	manifestPath := filepath.Join(tempDir, ".claude", "skill-manifest.json")
-	manifest := readFile(t, manifestPath)
-	if strings.Contains(manifest, "golang/golang-cli") {
-		t.Fatalf("python manifest should not include go-only skills:\n%s", manifest)
-	}
-	if !strings.Contains(manifest, "productivity/mise") {
-		t.Fatalf("python manifest missing shared skills:\n%s", manifest)
+	if _, statErr := os.Stat(manifestPath); !os.IsNotExist(statErr) {
+		t.Fatalf("skill-manifest.json stat error = %v, want not exists (seed skills are rendered in memory, not scaffolded)", statErr)
 	}
 }
 
@@ -171,13 +167,12 @@ func TestWriterAllowsGitDirectoryFromPreinitializedRepo(t *testing.T) {
 	}
 
 	assets := fstest.MapFS{
-		"templates/common/AGENTS.md.tmpl":                  {Data: []byte("Project {{.ProjectName}}\n")},
-		"templates/common/gitignore.base":                  {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {Data: []byte("{\"skills\":[\"productivity/mise\"]}\n")},
-		"templates/common/claude/hooks/secret-scan.sh":     {Data: []byte("#!/usr/bin/env bash\n")},
-		"templates/common/codex/hooks.json":                {Data: []byte("{\"hooks\":{}}\n")},
-		"templates/gitignore/Go.gitignore":                 {Data: []byte("bin/\n")},
-		"templates/golden/go-cli-cobra/main.go.tmpl":       {Data: []byte("package main\n")},
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
 	}
 
 	vars, err := project.ResolveVariables(project.Input{

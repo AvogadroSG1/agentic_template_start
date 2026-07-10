@@ -6,7 +6,8 @@
 
 `forge init` is a multi-step mutation: Phase 1 (render/copy/link) → guard install →
 `bd init` → `instill init`/`pick-skills`/`check-skills` → `lefthook install` → Phase 3
-remote. Any step can fail (a delegated tool errors, a network hiccup, bad input). The
+remote (instill step list since updated by ADR-0012). Any step can fail (a delegated tool
+errors, a network hiccup, bad input). The
 question is what state the target directory is left in, and whether forge should undo its
 own work.
 

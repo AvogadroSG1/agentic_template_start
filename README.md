@@ -46,7 +46,7 @@ To run `forge init` end to end, you also need:
 
 - `git`
 - `bd`
-- `instill`
+- `instill` (bootstraps the `apm` CLI ≥ 0.1.0 via Homebrew when missing)
 - `lefthook`
 - stack-specific native tooling:
   - Go stacks: `cobra-cli` or `go`

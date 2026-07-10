@@ -9,7 +9,7 @@ import (
 	"text/template"
 )
 
-const Version = 1
+const Version = 2
 
 const (
 	beginMarker = "// BEGIN FORGE ALLOW v:"

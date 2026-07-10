@@ -122,7 +122,7 @@ func TestSyncAllowlistUsesCanonicalEmbeddedEntriesForTheProjectLanguage(t *testi
 		t.Fatalf("ReadFile() error = %v", err)
 	}
 	block := string(data)
-	for _, snippet := range []string{`"Bash(git status:*)",`, `"Bash(instill:*)",`, `"Bash(lefthook:*)",`, `"Bash(go:*)",`} {
+	for _, snippet := range []string{`"Bash(git status:*)",`, `"Bash(instill:*)",`, `"Bash(apm:*)",`, `"Skill(*)",`, `"Bash(lefthook:*)",`, `"Bash(go:*)",`} {
 		if !strings.Contains(block, snippet) {
 			t.Fatalf("synced allowlist missing %q in %s", snippet, block)
 		}
@@ -146,7 +146,7 @@ func TestRunSyncAllowlistCheckNotifiesWithoutMutatingSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runSyncAllowlist(--check) error = %v", err)
 	}
-	if !strings.Contains(output, "allowlist is 1 version(s) behind; run forge sync-allowlist") {
+	if !strings.Contains(output, "allowlist is 2 version(s) behind; run forge sync-allowlist") {
 		t.Fatalf("runSyncAllowlist(--check) output = %q, want stale notice", output)
 	}
 
