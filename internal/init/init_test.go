@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"forge"
 	"forge/internal/project"
 	"forge/internal/scaffold"
 )
@@ -22,8 +24,8 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 	writer := scaffold.Writer{Assets: fstest.MapFS{
 		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
 		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {
-			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\"]}\n"),
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang-cli\",\"mise\"]}\n"),
 		},
 		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
@@ -54,8 +56,9 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		"git identity name",
 		"git identity email",
 		"bd init",
+		"instill bootstrap",
 		"instill init",
-		"instill check-skills",
+		"instill sync",
 		"mise trust",
 		"mise install",
 		"go mod tidy",
@@ -67,7 +70,7 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		t.Fatalf("step order = %#v, want %#v", got, want)
 	}
 
-	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang/golang-cli,productivity/mise")
+	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang-cli,mise")
 	assertRecordedStepArgs(t, runner.steps, "mise trust", "trust", "--all")
 }
 
@@ -79,8 +82,8 @@ func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
 	writer := scaffold.Writer{Assets: fstest.MapFS{
 		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
 		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {
-			Data: []byte("{\"skills\":[\"productivity/mise\"]}\n"),
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"mise\"]}\n"),
 		},
 		"templates/common/claude/hooks/secret-scan.sh":          {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":                     {Data: []byte("{\"hooks\":{}}\n")},
@@ -111,8 +114,9 @@ func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
 		"git identity name",
 		"git identity email",
 		"bd init",
+		"instill bootstrap",
 		"instill init",
-		"instill check-skills",
+		"instill sync",
 		"mise trust",
 		"mise install",
 		"pip install",
@@ -127,7 +131,7 @@ func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
 	assertRecordedStepArgs(t, runner.steps, "pip install", "exec", "--", "pip", "install", "-e", ".[dev]")
 }
 
-func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
+func TestInitializerPassesSeedSkillsToInstillInit(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -135,8 +139,8 @@ func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
 	writer := scaffold.Writer{Assets: fstest.MapFS{
 		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
 		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {
-			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"productivity/mise\",\"superpowers/brainstorming\"]}\n"),
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang-cli\",\"mise\",\"brainstorming\"]}\n"),
 		},
 		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
@@ -163,7 +167,7 @@ func TestInitializerPassesManifestSkillsToInstillInit(t *testing.T) {
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init",
-		"init", "--force", "--skills", "golang/golang-cli,productivity/mise,superpowers/brainstorming")
+		"init", "--force", "--skills", "golang-cli,mise,brainstorming")
 }
 
 func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testing.T) {
@@ -171,16 +175,15 @@ func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testi
 
 	tempDir := t.TempDir()
 	runner := &recordingRunner{
-		failRun: func(_ string, command string, args []string) error {
-			if command != "instill" {
+		failRun: func(step string, command string, args []string) error {
+			if command != "instill" || len(args) == 0 || args[0] != "init" {
 				return nil
 			}
 
-			skillsArg := lastArg(args)
-			switch skillsArg {
-			case "golang/golang-cli,ai-workflow/hookify/skills/writing-rules,productivity/mise":
+			switch {
+			case step == "instill init":
 				return errors.New("combined init failed")
-			case "ai-workflow/hookify/skills/writing-rules":
+			case lastArg(args) == "writing-rules":
 				return errors.New("permission denied")
 			default:
 				return nil
@@ -190,8 +193,8 @@ func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testi
 	writer := scaffold.Writer{Assets: fstest.MapFS{
 		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
 		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {
-			Data: []byte("{\"skills\":[\"golang/golang-cli\",\"ai-workflow/hookify/skills/writing-rules\",\"productivity/mise\"]}\n"),
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang-cli\",\"writing-rules\",\"mise\"]}\n"),
 		},
 		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
@@ -218,32 +221,28 @@ func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testi
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init",
-		"init", "--force", "--skills", "golang/golang-cli,ai-workflow/hookify/skills/writing-rules,productivity/mise")
-	assertRecordedStepArgs(t, runner.steps, "instill init (golang/golang-cli)",
-		"init", "--force", "--skills", "golang/golang-cli")
-	assertRecordedStepArgs(t, runner.steps, "instill init (ai-workflow/hookify/skills/writing-rules)",
-		"init", "--force", "--skills", "ai-workflow/hookify/skills/writing-rules")
-	assertRecordedStepArgs(t, runner.steps, "instill init (productivity/mise)",
-		"init", "--force", "--skills", "productivity/mise")
+		"init", "--force", "--skills", "golang-cli,writing-rules,mise")
+	assertRecordedStepArgs(t, runner.steps, "instill init (golang-cli)",
+		"init", "--force", "--skills", "golang-cli")
+	assertRecordedStepArgs(t, runner.steps, "instill init (writing-rules)",
+		"init", "--force", "--skills", "writing-rules")
+	assertRecordedStepArgs(t, runner.steps, "instill init (mise)",
+		"init", "--force", "--skills", "mise")
+	assertRecordedStepArgs(t, runner.steps, "instill init (retry)",
+		"init", "--force", "--skills", "golang-cli,mise")
 
-	skills, err := readManifestSkills(filepath.Join(tempDir, ".claude", "skill-manifest.json"))
-	if err != nil {
-		t.Fatalf("readManifestSkills() error = %v", err)
-	}
-
-	wantSkills := []string{"golang/golang-cli", "productivity/mise"}
-	if !equalStrings(skills, wantSkills) {
-		t.Fatalf("manifest skills = %#v, want %#v", skills, wantSkills)
+	if !hasStep(runner.steps, "instill sync") {
+		t.Fatalf("instill sync should run after successful fallback init: %#v", runner.stepNames())
 	}
 }
 
-func TestInitializerContinuesWhenNoManifestSkillsCanBeInitialized(t *testing.T) {
+func TestInitializerContinuesWhenNoSeedSkillsCanBeInitialized(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
 	runner := &recordingRunner{
 		failRun: func(_ string, command string, args []string) error {
-			if command != "instill" {
+			if command != "instill" || len(args) == 0 || args[0] != "init" {
 				return nil
 			}
 			return errors.New("permission denied")
@@ -252,8 +251,8 @@ func TestInitializerContinuesWhenNoManifestSkillsCanBeInitialized(t *testing.T) 
 	writer := scaffold.Writer{Assets: fstest.MapFS{
 		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
 		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {
-			Data: []byte("{\"skills\":[\"superpowers/executing-plans\",\"productivity/mise\"]}\n"),
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"executing-plans\",\"mise\"]}\n"),
 		},
 		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
 		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
@@ -279,16 +278,85 @@ func TestInitializerContinuesWhenNoManifestSkillsCanBeInitialized(t *testing.T) 
 		t.Fatalf("Run() error = %v", err)
 	}
 
-	if hasStep(runner.steps, "instill check-skills") {
-		t.Fatalf("instill check-skills should be skipped when no skills can be initialized: %#v", runner.stepNames())
+	if hasStep(runner.steps, "instill sync") {
+		t.Fatalf("instill sync should be skipped when no skills can be initialized: %#v", runner.stepNames())
+	}
+}
+
+func TestInitializerSkipsSkillSetupWhenInstillBootstrapFails(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		failRun: func(step string, _ string, _ []string) error {
+			if step == "instill bootstrap" {
+				return errors.New("brew not found")
+			}
+			return nil
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
 	}
 
-	skills, err := readManifestSkillsAllowEmpty(filepath.Join(tempDir, ".claude", "skill-manifest.json"))
-	if err != nil {
-		t.Fatalf("readManifestSkillsAllowEmpty() error = %v", err)
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
 	}
-	if len(skills) != 0 {
-		t.Fatalf("manifest skills = %#v, want empty after all instill init attempts fail", skills)
+
+	for _, step := range []string{"instill init", "instill sync"} {
+		if hasStep(runner.steps, step) {
+			t.Fatalf("%s should be skipped when instill bootstrap fails: %#v", step, runner.stepNames())
+		}
+	}
+	if !hasStep(runner.steps, "git commit") {
+		t.Fatalf("init should continue past a failed instill bootstrap: %#v", runner.stepNames())
+	}
+}
+
+func TestReadSeedSkills(t *testing.T) {
+	t.Parallel()
+
+	goSkills, err := readSeedSkills(forge.Assets(), "go")
+	if err != nil {
+		t.Fatalf("readSeedSkills(go) error = %v", err)
+	}
+	for _, want := range []string{"golang-cli", "mise", "brainstorming"} {
+		if !slices.Contains(goSkills, want) {
+			t.Fatalf("go seed skills = %#v, want to contain %q", goSkills, want)
+		}
+	}
+
+	pythonSkills, err := readSeedSkills(forge.Assets(), "python")
+	if err != nil {
+		t.Fatalf("readSeedSkills(python) error = %v", err)
+	}
+	if slices.Contains(pythonSkills, "golang-cli") {
+		t.Fatalf("python seed skills = %#v, want no golang-cli", pythonSkills)
+	}
+	if !slices.Contains(pythonSkills, "mise") {
+		t.Fatalf("python seed skills = %#v, want to contain mise", pythonSkills)
 	}
 }
 
@@ -298,13 +366,13 @@ func TestInitializerStopsAtTheFailedStepWithRecoveryText(t *testing.T) {
 	tempDir := t.TempDir()
 	runner := &recordingRunner{failStep: "instill init"}
 	writer := scaffold.Writer{Assets: fstest.MapFS{
-		"templates/common/AGENTS.md.tmpl":                  {Data: []byte("Project {{.ProjectName}}\n")},
-		"templates/common/gitignore.base":                  {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {Data: []byte("{\"skills\":[\"productivity/mise\"]}\n")},
-		"templates/common/claude/hooks/secret-scan.sh":     {Data: []byte("#!/usr/bin/env bash\n")},
-		"templates/common/codex/hooks.json":                {Data: []byte("{\"hooks\":{}}\n")},
-		"templates/gitignore/Go.gitignore":                 {Data: []byte("bin/\n")},
-		"templates/golden/go-cli-cobra/main.go":            {Data: []byte("package main\n")},
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl":              {Data: []byte("{\"skills\":[\"mise\"]}\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
 	}}
 	init := Initializer{Writer: writer, Runner: runner}
 
@@ -344,13 +412,13 @@ func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
 		},
 	}
 	writer := scaffold.Writer{Assets: fstest.MapFS{
-		"templates/common/AGENTS.md.tmpl":                  {Data: []byte("Project {{.ProjectName}}\n")},
-		"templates/common/gitignore.base":                  {Data: []byte(".DS_Store\n")},
-		"templates/common/claude/skill-manifest.json.tmpl": {Data: []byte("{\"skills\":[\"productivity/mise\"]}\n")},
-		"templates/common/claude/hooks/secret-scan.sh":     {Data: []byte("#!/usr/bin/env bash\n")},
-		"templates/common/codex/hooks.json":                {Data: []byte("{\"hooks\":{}}\n")},
-		"templates/gitignore/Go.gitignore":                 {Data: []byte("bin/\n")},
-		"templates/golden/go-cli-cobra/main.go":            {Data: []byte("package main\n")},
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl":              {Data: []byte("{\"skills\":[\"mise\"]}\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
 	}}
 	init := Initializer{Writer: writer, Runner: runner}
 

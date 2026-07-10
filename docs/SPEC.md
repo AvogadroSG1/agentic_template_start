@@ -40,7 +40,7 @@ ADR-0003 (one shared gate pipeline) · ADR-0004 (init fail-fast, no rollback) ·
 (stacks as walking-skeleton recipes) · ADR-0006 (update determinism & refresh seam) · ADR-0007
 (engine: Go + text/template + embed.FS) · ADR-0008 (strict empty-dir precondition) · ADR-0009
 (remote default gh, Phase-3-last, never auto-delete) · ADR-0010 (guideline is the conformance
-floor, not the ceiling).
+floor, not the ceiling) · ADR-0012 (skill provisioning via APM-backed instill).
 
 ---
 
@@ -86,7 +86,7 @@ flowchart TD
     end
     subgraph P2["Phase 2 — Delegate"]
         H --> I["bd init → .beads/, git hooks, AGENTS.md beads block"]
-        I --> J["instill init / pick-skills / check-skills → skill symlinks"]
+        I --> J["instill bootstrap / init / sync → apm.yml + apm.lock.yaml + .apm/"]
         J --> K["lefthook install (chain mode, after bd init)"]
     end
     subgraph P3["Phase 3 — Remote (optional, last)"]
@@ -113,8 +113,10 @@ The engine choice, distribution, and offline/vendored posture are recorded in **
 ### 4.2 Ordering invariants (load-bearing)
 
 The ordered mutation is: Phase 1 (render/copy/link) → guard install → `bd init` → `instill
-init`/`pick-skills`/`check-skills` → `lefthook install` → Phase 3 remote. Three orderings are
-load-bearing:
+bootstrap`/`init`/`sync` → `lefthook install` → Phase 3 remote. `instill bootstrap` (which
+ensures the `apm` CLI) is the one non-fatal step: if it fails, the skills phase is skipped and
+init continues — the repo self-heals later via `instill bootstrap && instill sync` (ADR-0012).
+Three orderings are load-bearing:
 
 - **Guard installs before `bd init`**, so beads' own git-hook install runs under the guard.
 - **`lefthook install` runs after `bd init`** in chain/non-clobber mode, preserving beads' hooks
@@ -271,12 +273,15 @@ rewrites only between its own markers; outside-block and inter-block content is 
 
 Only the allowlist block carries version + reconciler machinery (keeps `rom` scoped to one block).
 
-### 8.3 Skill-manifest topology
+### 8.3 APM manifest topology
 
-A **single** committed `.claude/skill-manifest.json` is the sole lockfile. `instill check-skills`
-regenerates **both** `.claude/skills/` and `.agents/skills/` from it (instill lands only one
-manifest and populates both trees). Both symlink trees are gitignored; the manifest is the
-committed portable lockfile. No per-agent manifest, no drift.
+`instill` delegates skill install/compile to Microsoft APM (ADR-0012). The committed contract is
+the pair `apm.yml` (selected skill + MCP dependencies, written by `instill init`) and
+`apm.lock.yaml` (APM's lockfile). `instill sync` runs `apm install` + `apm compile`, rendering
+agent-facing content into `.apm/` (gitignored, regenerated on every SessionStart). Forge's
+default skill selection lives in the embedded `templates/seed/skills.json.tmpl`, rendered
+in memory during init to build the `--skills` list — never scaffolded into the repo. One
+manifest feeds every agent harness APM compiles for; no per-agent manifest, no drift.
 
 ```gherkin
 Scenario: Gitignore merge is deterministic and sectioned
@@ -290,10 +295,10 @@ Scenario: Multiple managed blocks coexist without clobbering
   When `forge sync-allowlist` runs (targets settings.local.json, not AGENTS.md)
   Then AGENTS.md is untouched And only the allowlist block in settings.local.json is rewritten
 
-Scenario: One manifest feeds both agents' skill trees
-  Given a single committed .claude/skill-manifest.json
-  When `instill check-skills` runs on a fresh clone
-  Then .claude/skills/ and .agents/skills/ are both regenerated with the same skill set
+Scenario: One manifest feeds both agents' skill content
+  Given a committed apm.yml and apm.lock.yaml
+  When `instill sync` runs on a fresh clone
+  Then apm install + apm compile regenerate .apm/ with the same skill set for every agent
 ```
 
 ---
@@ -454,10 +459,11 @@ canonical embedded source file (separate sections), refreshing on independent ca
 ### 11.4 Seed contents
 
 - **Universal allow (every project):** version control (`git status/diff/log/add/commit/...`,
-  `gh pr/api/repo create/...`), toolchain (`bd:*`, `instill:*`, `mise:*`, `lefthook:*`), file ops
-  (`ls/cat/head/tail/mkdir/cp/mv/ln/chmod/touch/find/...`), text processing
-  (`grep/rg/fd/jq/sed/awk/sort/...`), misc shell (`echo/printf/date/xargs/timeout/bash`), and
-  native Claude tools (`Read Glob Grep Edit Write WebSearch`).
+  `gh pr/api/repo create/...`), toolchain (`bd:*`, `instill:*`, `apm:*`, `mise:*`, `lefthook:*`),
+  file ops (`ls/cat/head/tail/mkdir/cp/mv/ln/chmod/touch/find/...`), text processing
+  (`grep/rg/fd/jq/sed/awk/sort/...`), misc shell (`echo/printf/date/xargs/timeout/bash`),
+  native Claude tools (`Read Glob Grep Edit Write WebSearch`), and `Skill(*)` so every
+  instill-installed skill is usable without a permission prompt (ADR-0012).
 - **Per-stack slice (only the project's stack):** Go → `Bash(go:*)`; Python →
   `python/python3/uv/pip/pytest/ruff/pyright/...`; C# → `Bash(dotnet:*)`.
 - **Personal section** (tagged block; stripped by default, included via `--include-personal`):
@@ -538,7 +544,7 @@ commit, `ALLOW_VERSION` changed too" (forgot-to-bump backstop).
 **SessionStart hooks — both agents, same three in order, always exit 0:**
 
 1. `bd prime` (beads context)
-2. `instill check-skills` (skill-symlink reconciliation)
+2. `instill sync` (APM install + compile — regenerates `.apm/` skill content)
 3. `forge sync-allowlist --check` (staleness notice — advisory, last so most visible)
 
 Order is for readability; no hook depends on another's output. Every forge-authored hook **exits
@@ -555,7 +561,7 @@ Scenario: Stale allowlist notifies without blocking
 Scenario: Missing forge binary never breaks session start and is silent
   Given a collaborator's machine without forge on PATH
   When SessionStart fires the sync-allowlist --check hook
-  Then the hook exits 0 and prints nothing And bd prime + instill check-skills still ran
+  Then the hook exits 0 and prints nothing And bd prime + instill sync still ran
 ```
 
 ---
@@ -567,8 +573,8 @@ Scenario: Missing forge binary never breaks session start and is silent
 Beyond permissions, every scaffolded repo ships: an **ADR scaffold** (`docs/adr/` + MADR template);
 a **`CONTEXT.md` glossary stub**; **Codex full parity** (shared guard, allowlist equivalent, skill
 access — not just `bd prime`); a **`FORGE CONVENTIONS` block** in `AGENTS.md` (Co-Authored-By
-footer, conventional-comments, <300-line PR norm); and **gitignored instill artifacts**
-(`.claude/skills/` + `.agents/skills/` symlinks machine-local; `skill-manifest.json` committed).
+footer, conventional-comments, <300-line PR norm); and **gitignored APM artifacts**
+(`.apm/` compiled content machine-regenerable; `apm.yml` + `apm.lock.yaml` committed).
 
 ---
 
@@ -688,8 +694,8 @@ forge/                              # source repo
 │   │   ├── gitignore.base           # [verbatim] multi-language base .gitignore
 │   │   ├── AGENTS.md.tmpl           # [render]
 │   │   ├── claude/{settings.json, settings.local.json.tmpl, hooks/{guard, secret-scan.sh}}
-│   │   ├── codex/hooks.json         # [verbatim]
-│   │   └── skill-manifest.json.tmpl # [render]
+│   │   └── codex/hooks.json         # [verbatim]
+│   ├── seed/skills.json.tmpl        # [embed] default skill list, rendered in memory at init
 │   ├── gitignore/                   # [embed] vendored github/gitignore per language
 │   └── golden/<key>/                # [embed] pinned snapshots + .forge-overlay/ per v1 stack
 └── docs/                            # PRD.md, SPEC.md, adr/, handoffs/, superpowers/
@@ -698,7 +704,8 @@ forge/                              # source repo
 myproject/
 ├── .git/                  [delegate]   ├── AGENTS.md          [render] + beads block
 ├── .gitignore  base+lang merged        ├── CLAUDE.md → AGENTS.md  [link]
-├── .claude/{settings.json, settings.local.json, hooks/{guard, secret-scan.sh}, skill-manifest.json}
+├── .claude/{settings.json, settings.local.json, hooks/{guard, secret-scan.sh}}
+├── apm.yml, apm.lock.yaml [delegate]   ├── .apm/              [delegate, gitignored]
 ├── .codex/hooks.json                   ├── .beads/            [delegate]
 ├── mise.toml, lefthook.yml, .github/workflows/ci.yml
 └── <composed golden tree>  vanilla + overlay, rendered

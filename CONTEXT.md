@@ -57,8 +57,8 @@ extras the guideline is silent on. A lightweight conformance test asserts the fl
 fails when a guideline MUST has no corresponding overlay tool, not when the overlay ships an
 extra. A template may only ship for a language that has a guideline file (v1: Go, Python, C#).
 
-### Skill manifest vs. symlinks
-The `instill` manifest (`.claude/skill-manifest.json`) is the **committed, portable** declaration of which skills the repo uses (the lockfile). The `.claude/skills/` symlinks are **machine-local** and gitignored; `instill check-skills` regenerates them on clone (the node_modules).
+### Skill seed vs. APM manifest
+The **seed** (`templates/seed/skills.json.tmpl`) is forge's embedded default skill list, rendered in memory at init to build `instill init --skills` — never scaffolded into the repo. The **APM manifest pair** (`apm.yml` + `apm.lock.yaml`, written by `instill`/`apm`) is the committed, portable declaration of which skills the repo uses (the lockfile). `.apm/` is the compiled skill content — machine-regenerable and gitignored; `instill sync` (`apm install` + `apm compile`) regenerates it on clone (the node_modules).
 
 ### Recipe
 The ordered, pinned step list in a `sources.yaml` row that produces a stack's vanilla layer. A row carries a `kind` discriminator (`scaffolder` | `recipe`) and ordered `steps[]` of two verbs — `checkout` (clone a pinned git ref, with an optional `strip:` of paths) and `run` (invoke a pinned scaffolder/toolchain command). A single-scaffolder stack is simply a **one-step recipe**, so the writer and the `update` interpreter never branch on shape. Distinct from the **golden snapshot**, which is the *captured output* of running a recipe.

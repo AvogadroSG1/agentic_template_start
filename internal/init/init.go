@@ -1,12 +1,15 @@
 package initcmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"forge/internal/delegate"
 	"forge/internal/project"
@@ -41,11 +44,10 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 		return failWithRecovery(targetDir, "phase 1 scaffold writer", err)
 	}
 
-	skills, err := readManifestSkills(filepath.Join(targetDir, ".claude", "skill-manifest.json"))
+	skills, err := readSeedSkills(i.Writer.Assets, vars.Language)
 	if err != nil {
-		return failWithRecovery(targetDir, "skill manifest read", err)
+		return failWithRecovery(targetDir, "skill seed render", err)
 	}
-	manifestPath := filepath.Join(targetDir, ".claude", "skill-manifest.json")
 
 	steps := []struct {
 		name    string
@@ -63,13 +65,19 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 			return failWithRecovery(targetDir, step.name, err)
 		}
 		if step.name == "bd init" {
-			initializedSkills, err := runInstillInit(ctx, i.Runner, targetDir, manifestPath, skills)
-			if err != nil {
-				return failWithRecovery(targetDir, "instill init", err)
-			}
-			if len(initializedSkills) > 0 {
-				if err := i.Runner.Run(ctx, targetDir, "instill check-skills", "instill", "check-skills"); err != nil {
-					return failWithRecovery(targetDir, "instill check-skills", err)
+			if err := i.Runner.Run(ctx, targetDir, "instill bootstrap", "instill", "bootstrap"); err != nil {
+				// APM bootstrap needs Homebrew; a repo without skills is still
+				// usable and self-heals later via `instill bootstrap && instill sync`.
+				fmt.Fprintf(os.Stderr, "skipping skill setup: instill bootstrap failed: %v\n", err)
+			} else {
+				initializedSkills, err := runInstillInit(ctx, i.Runner, targetDir, skills)
+				if err != nil {
+					return failWithRecovery(targetDir, "instill init", err)
+				}
+				if len(initializedSkills) > 0 {
+					if err := i.Runner.Run(ctx, targetDir, "instill sync", "instill", "sync"); err != nil {
+						return failWithRecovery(targetDir, "instill sync", err)
+					}
 				}
 			}
 		}
@@ -107,67 +115,60 @@ type skillManifest struct {
 	Skills []string `json:"skills"`
 }
 
-func readManifestSkills(path string) ([]string, error) {
-	manifest, err := readManifestSkillsAllowEmpty(path)
+func readSeedSkills(assets fs.FS, language string) ([]string, error) {
+	data, err := fs.ReadFile(assets, "templates/seed/skills.json.tmpl")
 	if err != nil {
 		return nil, err
 	}
-	if len(manifest) == 0 {
-		return nil, fmt.Errorf("skill manifest is empty")
+
+	tmpl, err := template.New("skills.json.tmpl").Option("missingkey=error").Parse(string(data))
+	if err != nil {
+		return nil, err
 	}
 
-	return manifest, nil
-}
-
-func readManifestSkillsAllowEmpty(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, struct{ Language string }{Language: strings.TrimSpace(language)}); err != nil {
 		return nil, err
 	}
 
 	var manifest skillManifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("parse skill manifest: %w", err)
+	if err := json.Unmarshal(rendered.Bytes(), &manifest); err != nil {
+		return nil, fmt.Errorf("parse skill seed: %w", err)
+	}
+	if len(manifest.Skills) == 0 {
+		return nil, fmt.Errorf("skill seed is empty")
 	}
 
 	return manifest.Skills, nil
 }
 
-func writeManifestSkills(path string, skills []string) error {
-	data, err := json.MarshalIndent(skillManifest{Skills: skills}, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal skill manifest: %w", err)
-	}
-
-	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("write skill manifest: %w", err)
-	}
-
-	return nil
-}
-
-func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir string, manifestPath string, skills []string) ([]string, error) {
+func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir string, skills []string) ([]string, error) {
 	if err := runner.Run(ctx, targetDir, "instill init", "instill", "init", "--force", "--skills", strings.Join(skills, ",")); err == nil {
 		return skills, nil
 	} else if len(skills) == 1 {
 		return nil, err
-	} else {
-		initialized := make([]string, 0, len(skills))
-		for _, skill := range skills {
-			stepName := fmt.Sprintf("instill init (%s)", skill)
-			if skillErr := runner.Run(ctx, targetDir, stepName, "instill", "init", "--force", "--skills", skill); skillErr != nil {
-				continue
-			}
-			initialized = append(initialized, skill)
-		}
-
-		if err := writeManifestSkills(manifestPath, initialized); err != nil {
-			return nil, err
-		}
-
-		return initialized, nil
 	}
+
+	// `instill init --force` overwrites apm.yml on every call, so the per-skill
+	// probes below only discover which skills resolve; one final combined init
+	// writes the manifest containing the full working set.
+	initialized := make([]string, 0, len(skills))
+	for _, skill := range skills {
+		stepName := fmt.Sprintf("instill init (%s)", skill)
+		if skillErr := runner.Run(ctx, targetDir, stepName, "instill", "init", "--force", "--skills", skill); skillErr != nil {
+			continue
+		}
+		initialized = append(initialized, skill)
+	}
+	if len(initialized) == 0 {
+		return nil, nil
+	}
+
+	if err := runner.Run(ctx, targetDir, "instill init (retry)", "instill", "init", "--force", "--skills", strings.Join(initialized, ",")); err != nil {
+		return nil, err
+	}
+
+	return initialized, nil
 }
 
 func repairBeadsHookChain(targetDir string) error {
