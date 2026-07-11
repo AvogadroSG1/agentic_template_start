@@ -1,0 +1,13 @@
+// <copyright file="HealthReporter.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+namespace {{.CSharpNamespace}}
+{
+    /// <inheritdoc />
+    public sealed class HealthReporter : IHealthReporter
+    {
+        /// <inheritdoc />
+        public HealthStatus Current() => new("ok");
+    }
+}

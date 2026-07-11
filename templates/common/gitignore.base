@@ -12,3 +12,6 @@
 .claude/backups/
 **DS_Store**
 .claude/.DS_Store
+
+# Angular CLI cache — upstream Node.gitignore lacks it; never edit the vendored stem
+.angular/

@@ -1,0 +1,26 @@
+package web
+
+templ Index(title string, status string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<script src="/static/htmx.min.js"></script>
+		</head>
+		<body>
+			<section>
+				<h1>{ title }</h1>
+				<p>
+					API health:
+					<span id="api-status" hx-get="/health/fragment" hx-trigger="load" hx-swap="innerHTML">{ status }</span>
+				</p>
+			</section>
+		</body>
+	</html>
+}
+
+templ StatusFragment(status string) {
+	{ status }
+}

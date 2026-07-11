@@ -1,0 +1,9 @@
+@page "/"
+@inject {{.CSharpNamespace}}.IHealthReporter Health
+
+<PageTitle>{{.ProjectName}}</PageTitle>
+
+<section>
+    <h1>{{.ProjectName}}</h1>
+    <p>API health: <span id="api-status">@Health.Current().Status</span></p>
+</section>

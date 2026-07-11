@@ -1,0 +1,36 @@
+// <copyright file="Program.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+using {{.CSharpNamespace}}.Components;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddInteractiveWebAssemblyComponents();
+builder.Services.AddSingleton<{{.CSharpNamespace}}.IHealthReporter, {{.CSharpNamespace}}.HealthReporter>();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseWebAssemblyDebugging();
+}
+else
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapGet("/health", ({{.CSharpNamespace}}.IHealthReporter reporter) => Results.Ok(reporter.Current()));
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof({{.CSharpNamespace}}.Client._Imports).Assembly);
+
+app.Run();

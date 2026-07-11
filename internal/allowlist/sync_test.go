@@ -124,7 +124,7 @@ func TestInferLanguageRejectsMissingManagedBlockLanguageMarkers(t *testing.T) {
 func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
 	t.Parallel()
 
-	defaultBlock, err := CanonicalBlock(forge.Assets(), "go", false)
+	defaultBlock, err := CanonicalBlock(forge.Assets(), "go", false, false)
 	if err != nil {
 		t.Fatalf("CanonicalBlock(default) error = %v", err)
 	}
@@ -132,7 +132,7 @@ func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
 		t.Fatalf("CanonicalBlock(default) unexpectedly included personal rules:\n%s", defaultBlock)
 	}
 
-	personalBlock, err := CanonicalBlock(forge.Assets(), "go", true)
+	personalBlock, err := CanonicalBlock(forge.Assets(), "go", false, true)
 	if err != nil {
 		t.Fatalf("CanonicalBlock(include personal) error = %v", err)
 	}

@@ -109,7 +109,7 @@ func Run(ctx context.Context, assets fs.FS, stack string, runner CommandRunner, 
 		return err
 	}
 	if vars.Language != "go" {
-		return fmt.Errorf("maintainer refresh currently supports Go stacks only; stack %s resolves to %s", stack, vars.Language)
+		return fmt.Errorf("maintainer refresh currently supports Go stacks only; stack %s (%s) is captured manually — see docs/SPEC.md §15", stack, vars.Language)
 	}
 
 	workspaceRoot, err := os.MkdirTemp("", "forge-update-")
@@ -270,6 +270,8 @@ func languageForRow(stack string, row sourceRow) (string, error) {
 		return "python", nil
 	case "visualstudio":
 		return "csharp", nil
+	case "node":
+		return "typescript", nil
 	}
 
 	parts := strings.SplitN(strings.TrimSpace(stack), "-", 2)

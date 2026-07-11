@@ -235,3 +235,128 @@ func TestTemplateGuardMatchesSharedGuard(t *testing.T) {
 		t.Fatalf("template guard drifted from shared guard")
 	}
 }
+
+func TestWriterComposesFrontendFragmentUnderWeb(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	assets := fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":  {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":  {Data: []byte(".DS_Store\n")},
+		"templates/gitignore/Go.gitignore": {Data: []byte("bin/\n")},
+		"templates/gitignore/Node.gitignore": {
+			Data: []byte("node_modules/\n"),
+		},
+		"templates/golden/go-api-chi/go.mod.tmpl": {Data: []byte("module {{.ModulePath}}\n")},
+		"templates/golden/go-api-chi/.forge-overlay/mise.toml.tmpl": {
+			Data: []byte("[tools]\ngo = \"1.26.4\"\n{{- if .Frontend }}\nnode = \"24\"\n\n[tasks.web-test]\nrun = \"npm --prefix web test\"\n{{- end }}\n"),
+		},
+		"templates/golden/vite-ts/package.json.tmpl": {Data: []byte("{\"name\": \"{{.NpmPackage}}\"}\n")},
+		"templates/golden/vite-ts/src/counter.ts":    {Data: []byte("export {};\n")},
+		"templates/golden/vite-ts/.forge-overlay/src/api/client.ts.tmpl": {
+			Data: []byte("const base = '{{.APIBaseURL}}';\nexport default base;\n"),
+		},
+		"templates/golden/vite-ts/.forge-overlay/src/main.ts": {Data: []byte("export const overlay = true;\n")},
+		"templates/golden/vite-ts/.forge-overlay/mise.toml":   {Data: []byte("[tools]\nnode = \"24\"\n")},
+		"templates/golden/vite-ts/.forge-overlay/lefthook.yml": {
+			Data: []byte("pre-commit:\n"),
+		},
+		"templates/golden/vite-ts/.forge-overlay/.github/workflows/ci.yml": {
+			Data: []byte("name: ci\n"),
+		},
+	}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Full App",
+		Language:    "go",
+		ProjectType: "fullstack",
+		Stack:       "go-api-chi",
+		Frontend:    "vite-ts",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: assets}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	assertFileContains(t, filepath.Join(tempDir, "web", "package.json"), "\"name\": \"full-app\"")
+	assertFileContains(t, filepath.Join(tempDir, "web", "src", "counter.ts"), "export {};")
+	assertFileContains(t, filepath.Join(tempDir, "web", "src", "api", "client.ts"), "const base = 'http://localhost:8080';")
+	assertFileContains(t, filepath.Join(tempDir, "web", "src", "main.ts"), "overlay = true")
+
+	assertFileContains(t, filepath.Join(tempDir, "mise.toml"), "[tasks.web-test]")
+	assertFileContains(t, filepath.Join(tempDir, "mise.toml"), "node = \"24\"")
+
+	for _, forbidden := range []string{
+		filepath.Join(tempDir, "web", "mise.toml"),
+		filepath.Join(tempDir, "web", "lefthook.yml"),
+		filepath.Join(tempDir, "web", ".github"),
+	} {
+		if _, err := os.Stat(forbidden); !os.IsNotExist(err) {
+			t.Fatalf("fragment gate file %s should not exist (err = %v)", forbidden, err)
+		}
+	}
+
+	gitignore, err := os.ReadFile(filepath.Join(tempDir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("ReadFile(.gitignore) error = %v", err)
+	}
+	text := string(gitignore)
+	goBanner := strings.Index(text, "# ===== go gitignore =====")
+	nodeBanner := strings.Index(text, "# ===== node gitignore =====")
+	if goBanner == -1 || nodeBanner == -1 || nodeBanner < goBanner {
+		t.Fatalf(".gitignore sections out of order:\n%s", text)
+	}
+	if !strings.Contains(text, "node_modules/") {
+		t.Fatalf(".gitignore missing node section:\n%s", text)
+	}
+	if strings.Contains(text, "<no value>") || strings.Contains(text, "{{") {
+		t.Fatalf(".gitignore has template residue:\n%s", text)
+	}
+}
+
+func TestWriterRendersStandaloneTypescriptStackWithNodeGitignore(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	assets := fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":            {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":            {Data: []byte(".DS_Store\n")},
+		"templates/gitignore/Node.gitignore":         {Data: []byte("node_modules/\n")},
+		"templates/golden/vite-ts/package.json.tmpl": {Data: []byte("{\"name\": \"{{.NpmPackage}}\"}\n")},
+		"templates/golden/vite-ts/.forge-overlay/src/api/client.ts.tmpl": {
+			Data: []byte("const base = '{{.APIBaseURL}}';\nexport default base;\n"),
+		},
+		"templates/golden/vite-ts/.forge-overlay/mise.toml": {Data: []byte("[tools]\nnode = \"24\"\n")},
+	}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Web App",
+		Language:    "typescript",
+		ProjectType: "frontend",
+		Stack:       "vite-ts",
+		APIBaseURL:  "https://api.example.com",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: assets}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	assertFileContains(t, filepath.Join(tempDir, "package.json"), "\"name\": \"web-app\"")
+	assertFileContains(t, filepath.Join(tempDir, "src", "api", "client.ts"), "https://api.example.com")
+	assertFileContains(t, filepath.Join(tempDir, "mise.toml"), "node = \"24\"")
+	assertFileContains(t, filepath.Join(tempDir, ".gitignore"), "# ===== node gitignore =====")
+}

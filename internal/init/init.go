@@ -91,6 +91,15 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 				if err := i.Runner.Run(ctx, targetDir, "pip install", "mise", "exec", "--", "pip", "install", "-e", ".[dev]"); err != nil {
 					return failWithRecovery(targetDir, "pip install", err)
 				}
+			case "typescript":
+				if err := i.Runner.Run(ctx, targetDir, "npm install", "mise", "exec", "--", "npm", "install"); err != nil {
+					return failWithRecovery(targetDir, "npm install", err)
+				}
+			}
+			if vars.Frontend != "" {
+				if err := i.Runner.Run(ctx, targetDir, "npm install (web)", "mise", "exec", "--", "npm", "--prefix", "web", "install"); err != nil {
+					return failWithRecovery(targetDir, "npm install (web)", err)
+				}
 			}
 		}
 		if step.name == "lefthook install" {

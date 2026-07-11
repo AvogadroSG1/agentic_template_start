@@ -1,0 +1,33 @@
+[tools]
+dotnet = "10.0.203"
+lefthook = "latest"
+{{- if .Frontend }}
+node = "24"
+{{- end }}
+
+[tasks.fmt]
+run = "dotnet format Project.csproj --verify-no-changes"
+
+[tasks.lint]
+run = "dotnet build tests/Project.Tests/Project.Tests.csproj -warnaserror"
+
+[tasks.test]
+run = "dotnet test tests/Project.Tests/Project.Tests.csproj"
+{{- if .Frontend }}
+
+[tasks.web-fmt]
+run = "npm --prefix web run fmt"
+
+[tasks.web-lint]
+run = "npm --prefix web run lint && npm --prefix web run typecheck"
+
+[tasks.web-test]
+run = "npm --prefix web test"
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && dotnet list tests/Project.Tests/Project.Tests.csproj package --vulnerable --include-transitive && mise run web-fmt && mise run web-lint && mise run web-test && npm --prefix web audit --audit-level=high"
+{{- else }}
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && dotnet list tests/Project.Tests/Project.Tests.csproj package --vulnerable --include-transitive"
+{{- end }}

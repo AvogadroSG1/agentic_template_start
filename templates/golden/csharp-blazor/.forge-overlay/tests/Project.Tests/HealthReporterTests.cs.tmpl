@@ -1,0 +1,22 @@
+// <copyright file="HealthReporterTests.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+using Xunit;
+
+/// <summary>
+/// Verifies the health wiring shared by the endpoint and the home page.
+/// </summary>
+public sealed class HealthReporterTests
+{
+    /// <summary>
+    /// Ensures the reporter walks with an ok status.
+    /// </summary>
+    [Fact]
+    public void HealthReporterReportsOk()
+    {
+        {{.CSharpNamespace}}.IHealthReporter reporter = new {{.CSharpNamespace}}.HealthReporter();
+
+        Assert.Equal("ok", reporter.Current().Status);
+    }
+}

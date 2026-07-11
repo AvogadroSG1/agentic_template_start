@@ -1,0 +1,35 @@
+[tools]
+go = "1.26.4"
+golangci-lint = "latest"
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+lefthook = "latest"
+{{- if .Frontend }}
+node = "24"
+{{- end }}
+
+[tasks.fmt]
+run = "gofmt -w $(find . -name '*.go' -not -path './.git/*' -not -path './web/*')"
+
+[tasks.lint]
+run = "golangci-lint run ./..."
+
+[tasks.test]
+run = "go test -cover ./..."
+{{- if .Frontend }}
+
+[tasks.web-fmt]
+run = "npm --prefix web run fmt"
+
+[tasks.web-lint]
+run = "npm --prefix web run lint && npm --prefix web run typecheck"
+
+[tasks.web-test]
+run = "npm --prefix web test"
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && govulncheck ./... && mise run web-fmt && mise run web-lint && mise run web-test && npm --prefix web audit --audit-level=high"
+{{- else }}
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && govulncheck ./..."
+{{- end }}

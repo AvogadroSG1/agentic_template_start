@@ -16,6 +16,29 @@ var shippedStacks = []string{
 	"python-fastapi",
 	"csharp-cli",
 	"csharp-webapi",
+	"go-web-templ",
+	"python-web-jinja",
+	"csharp-blazor",
+	"vite-ts",
+	"sveltekit",
+	"angular",
+}
+
+// readMiseOverlay reads a stack's overlay mise.toml, accepting the rendered
+// (.tmpl) form used by fullstack-capable backends.
+func readMiseOverlay(t *testing.T, assets fs.FS, stack string) (string, string) {
+	t.Helper()
+
+	base := filepath.ToSlash(filepath.Join("templates/golden", stack, ".forge-overlay", "mise.toml"))
+	for _, candidate := range []string{base, base + ".tmpl"} {
+		data, err := fs.ReadFile(assets, candidate)
+		if err == nil {
+			return candidate, string(data)
+		}
+	}
+
+	t.Fatalf("no mise.toml or mise.toml.tmpl overlay for stack %s", stack)
+	return "", ""
 }
 
 func TestShippedStacksCarryGatePipelineAssets(t *testing.T) {
@@ -27,8 +50,8 @@ func TestShippedStacksCarryGatePipelineAssets(t *testing.T) {
 		t.Run(stack, func(t *testing.T) {
 			t.Parallel()
 
+			readMiseOverlay(t, assets, stack)
 			for _, rel := range []string{
-				".forge-overlay/mise.toml",
 				".forge-overlay/lefthook.yml",
 				".forge-overlay/.github/workflows/ci.yml",
 			} {
@@ -50,12 +73,7 @@ func TestShippedStacksDefineGateTasksAndHookCallers(t *testing.T) {
 		t.Run(stack, func(t *testing.T) {
 			t.Parallel()
 
-			misePath := filepath.ToSlash(filepath.Join("templates/golden", stack, ".forge-overlay", "mise.toml"))
-			miseData, err := fs.ReadFile(assets, misePath)
-			if err != nil {
-				t.Fatalf("ReadFile(%s) error = %v", misePath, err)
-			}
-			miseText := string(miseData)
+			misePath, miseText := readMiseOverlay(t, assets, stack)
 			for _, section := range []string{"[tasks.fmt]", "[tasks.lint]", "[tasks.test]", "[tasks.ci]"} {
 				if !strings.Contains(miseText, section) {
 					t.Fatalf("%s missing %s", misePath, section)
@@ -97,9 +115,37 @@ func TestSharedCIWorkflowOnlyDelegatesToMise(t *testing.T) {
 					t.Fatalf("%s missing %q", ciPath, snippet)
 				}
 			}
-			for _, forbidden := range []string{"go test", "pytest", "dotnet test", "ruff", "golangci-lint"} {
+			for _, forbidden := range []string{"go test", "pytest", "dotnet test", "ruff", "golangci-lint", "vitest", "eslint", "npm run"} {
 				if strings.Contains(ciText, forbidden) {
 					t.Fatalf("%s should not inline %q", ciPath, forbidden)
+				}
+			}
+		})
+	}
+}
+
+func TestFullstackBackendMiseTemplatesCarryWebGates(t *testing.T) {
+	t.Parallel()
+
+	assets := forge.Assets()
+	for _, stack := range []string{"go-api-chi", "python-fastapi", "csharp-webapi"} {
+		stack := stack
+		t.Run(stack, func(t *testing.T) {
+			t.Parallel()
+
+			misePath, miseText := readMiseOverlay(t, assets, stack)
+			if !strings.HasSuffix(misePath, ".tmpl") {
+				t.Fatalf("%s must be a template so fullstack repos gain web gates", misePath)
+			}
+			for _, snippet := range []string{
+				"{{- if .Frontend }}",
+				"[tasks.web-fmt]",
+				"[tasks.web-lint]",
+				"[tasks.web-test]",
+				"npm --prefix web audit --audit-level=high",
+			} {
+				if !strings.Contains(miseText, snippet) {
+					t.Fatalf("%s missing %q", misePath, snippet)
 				}
 			}
 		})

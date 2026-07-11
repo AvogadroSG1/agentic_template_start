@@ -1,0 +1,26 @@
+// <copyright file="HealthController.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+namespace {{.CSharpNamespace}}.Controllers
+{
+    using Microsoft.AspNetCore.Mvc;
+
+    /// <summary>
+    /// Serves the liveness contract consumed by frontends and probes.
+    /// </summary>
+    [ApiController]
+    [Route("health")]
+    public sealed class HealthController : ControllerBase
+    {
+        /// <summary>
+        /// Reports that the API is up.
+        /// </summary>
+        /// <returns>The health payload.</returns>
+        [HttpGet]
+        public IActionResult Get()
+        {
+            return this.Ok(new HealthStatus("ok"));
+        }
+    }
+}

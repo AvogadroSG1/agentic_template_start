@@ -40,7 +40,8 @@ ADR-0003 (one shared gate pipeline) · ADR-0004 (init fail-fast, no rollback) ·
 (stacks as walking-skeleton recipes) · ADR-0006 (update determinism & refresh seam) · ADR-0007
 (engine: Go + text/template + embed.FS) · ADR-0008 (strict empty-dir precondition) · ADR-0009
 (remote default gh, Phase-3-last, never auto-delete) · ADR-0010 (guideline is the conformance
-floor, not the ceiling) · ADR-0012 (skill provisioning via APM-backed instill).
+floor, not the ceiling) · ADR-0012 (skill provisioning via APM-backed instill) · ADR-0013
+(frontend dimension: fragments under web/) · ADR-0014 (typescript toolchain).
 
 ---
 
@@ -75,7 +76,7 @@ already do well.
 
 ```mermaid
 flowchart TD
-    A["forge (picker: language → type → stack)"] --> P1
+    A["forge (picker: language → type → stack → frontend?)"] --> P1
     subgraph P1["Phase 1 — Scaffold (forge owns)"]
         B["git init + identity"] --> C["Render .tmpl files (text/template, missingkey=error)"]
         C --> D["Copy verbatim files (hooks, settings, base gitignore)"]
@@ -180,7 +181,8 @@ Scenario: Bare invocation defaults to init
 
 *(Authoritative: CLI/render contract §1, §3.)*
 
-**Seed (prompted/flagged, un-derivable):** project name, language, type, stack, remote choice.
+**Seed (prompted/flagged, un-derivable):** project name, language, type, stack, frontend
+(fullstack on an api backend only), api-base-url (frontend-only projects), remote choice.
 **Author identity** auto-defaults from `git config --global user.{name,email}`, prompted only if
 absent.
 
@@ -191,10 +193,19 @@ absent.
 | `BdPrefix` | lowercased, non-alphanumeric-stripped slug | `--bd-prefix` |
 | `ModulePath` | `github.com/<gh-user>/<ProjectName>` when `--remote gh`; else editable placeholder | `--module-path` |
 | Go module / Python package (`snake_case`) / C# namespace (`PascalCase`) | normalized slug | (language-specific) |
+| `NpmPackage` | kebab slug (== RepoSlug) | — |
+| `BackendPort` | per stack: chi 8080 · uvicorn 8000 · Kestrel 5000 | — |
+| `APIBaseURL` | fullstack: `http://localhost:<BackendPort>`; frontend-only: prompted | `--api-base-url` |
 
-**Prompt order:** project name → language → type → stack → author identity (confirm-or-edit the
-git-config default) → remote (last; the one outward-facing action). Type is filtered to what
-exists for the chosen language; stack to language × type. Only shipped v1 stacks appear (§9).
+**Prompt order:** project name → language → type → stack → frontend (only when type is
+`fullstack` and the stack is a FullstackBackend api stack; a native fullstack stack IS the
+fullstack, so the question is skipped) → api-base-url (only when type is `frontend`; TTY
+default `http://localhost:8080`; for fullstack it is derived from the backend port and
+`--api-base-url` is a silent override) → author identity (confirm-or-edit the git-config
+default) → remote (last; the one outward-facing action). Type is filtered to what exists for
+the chosen language; stack to language × type. **When a question has exactly one valid
+choice** (typescript → `frontend`), it auto-selects silently — even without a TTY — rather
+than demanding a flag with only one legal value. Only shipped v1 stacks appear (§9).
 
 **Three-state precedence (per input):** (1) flag present → use it, skip the prompt silently; (2)
 flag absent + TTY → prompt; (3) flag absent + no TTY → **error naming the missing flag** (never a
@@ -314,19 +325,27 @@ output (vanilla + overlay) must be a **walking skeleton**: it runs end-to-end wi
 test (CONTEXT.md; ADR-0005). The walking skeleton is an emergent property of composition, not a
 third layer.
 
-### 9.1 v1 catalog — Go, Python, C# only (six stacks)
+### 9.1 v1 catalog — twelve stacks
 
-| Stack key | Language | Type |
-|---|---|---|
-| `go-cli-cobra` | Go | CLI |
-| `go-api-chi` | Go | API |
-| `python-cli-typer` | Python | CLI |
-| `python-fastapi` | Python | API |
-| `csharp-cli` | C# | CLI |
-| `csharp-webapi` | C# | API |
+| Stack key | Language | Type | Notes |
+|---|---|---|---|
+| `go-cli-cobra` | Go | CLI | |
+| `go-api-chi` | Go | API | FullstackBackend |
+| `python-cli-typer` | Python | CLI | |
+| `python-fastapi` | Python | API | FullstackBackend |
+| `csharp-cli` | C# | CLI | |
+| `csharp-webapi` | C# | API | FullstackBackend |
+| `go-web-templ` | Go | fullstack | templ + HTMX, chi-served |
+| `python-web-jinja` | Python | fullstack | FastAPI + Jinja2 + HTMX |
+| `csharp-blazor` | C# | fullstack | Blazor Web App, Interactive Auto |
+| `vite-ts` | TypeScript | frontend | Vite vanilla-ts, prescribed src/ layout |
+| `sveltekit` | TypeScript | frontend | SvelteKit minimal, runes |
+| `angular` | TypeScript | frontend | Angular CLI, standalone + signals |
 
-TypeScript, Rust, and Bash are **deferred** until their guideline files exist (ADR-0003); the
-catalog boundary is executable (`01b`) so unsupported stacks are non-selectable.
+The three `frontend` stacks double as the `--frontend` fragment choices for fullstack
+projects on a FullstackBackend api stack (ADR-0013). Rust and Bash remain **deferred**
+until their guideline files exist (ADR-0003); the catalog boundary is executable (`01b`)
+so unsupported stacks are non-selectable.
 
 ### 9.2 Sourcing — `sources.yaml` recipe schema
 
@@ -335,9 +354,10 @@ A stack's vanilla layer is the output of a **recipe** (which may be multi-step),
 <stem>, normalize: [...], resolved: {written by update only}}`. A single-scaffolder stack is a
 one-step recipe. `go-api-chi` is `kind: recipe` (pinned checkout of `golang-standards/project-layout`
 + `go mod init` + `go get` of pinned chi/zap/viper/testify); its wired `main.go` + handler test
-live in the **overlay**, not vanilla. gitignore mapping: Go→`Go`, Python→`Python`, C#→`VisualStudio`,
-each resolved against one repo-wide pinned SHA (top-level `gitignore_repo` key). Full schema and
-rationale: **ADR-0005**.
+live in the **overlay**, not vanilla. gitignore mapping: Go→`Go`, Python→`Python`, C#→`VisualStudio`, TypeScript→`Node`,
+each resolved against one repo-wide pinned SHA (top-level `gitignore_repo` key). JS recipe rows
+add a `strip_paths` normalize rule (drops `node_modules`, lockfiles, scaffolder caches and
+`.gitignore`s before snapshotting; ADR-0014). Full schema and rationale: **ADR-0005**.
 
 ### 9.3 Packaging boundary
 
@@ -346,6 +366,13 @@ everything else under the stack dir is vanilla/refreshable. Overlay files may la
 dirs — init composes **vanilla-first, then overlay-wins** on path collision, stripping the
 `.forge-overlay/` prefix. The walking-skeleton test ships in the overlay next to the wiring it
 exercises (non-vacuous-test guarantee; §16).
+
+**Fullstack composition (ADR-0013):** when `--frontend` is set, the chosen typescript stack's
+vanilla + overlay compose a second time under `web/`, skipping the fragment's **root gate
+files** (`mise.toml`, `lefthook.yml`, `.github/`) — the backend overlay's templated
+`mise.toml` owns the whole repo's gates, adding node tools and `web-*` tasks via its
+`{{if .Frontend}}` half. The `.gitignore` merge appends a `Node` section after the backend
+language section.
 
 ---
 
@@ -369,6 +396,7 @@ Every overlay tool traces to a canonical guideline file; the conformance test (`
 | **Go** | `gofmt` | `golangci-lint` | `testing` + `go-cmp` | *(none — idiomatic fakes)* | `go test -cover` | — | `govulncheck` |
 | **Python** | `ruff format` | `ruff` | `pytest` | `pytest-mock` | `pytest-cov` | `pyright` | `pip-audit` |
 | **C#** | `dotnet format` | StyleCop.Analyzers | **xUnit** | NSubstitute | coverlet | nullable refs | `dotnet list package --vulnerable` |
+| **TypeScript** | `prettier` | `eslint` (typescript-eslint / angular-eslint / eslint-plugin-svelte) | `vitest` | *(vi stubs)* | vitest coverage | `tsc --noEmit` / `svelte-check` | `npm audit --audit-level=high` |
 
 ### 10.2 Conformance semantics — guideline is the floor, not the ceiling
 
@@ -582,7 +610,11 @@ footer, conventional-comments, <300-line PR norm); and **gitignored APM artifact
 
 *(Authoritative: CLI/render contract §8; cites ADR-0005, ADR-0006. Maintainer-only, online.)*
 
-`forge update` refreshes all stacks by default; `--stack <key>` scopes to one. Each run: execute
+`forge update` refreshes all stacks by default; `--stack <key>` scopes to one. **Refresh
+currently supports Go stacks only** — the python/csharp/typescript rows in `sources.yaml` are
+authoritative recipes, but their vanilla layers are captured manually (run the recipe steps by
+hand, apply the normalize rules) until the interpreter gains `strip_paths` plus npm/dotnet
+placeholder mappings; `forge update` on those stacks fails loudly naming this section. Each run: execute
 the recipe's ordered steps (`checkout`/`run`, with per-step `strip:` on a `checkout`) in a temp dir (`369`) → run the per-stack
 normalization pass over the **vanilla layer only** → write the snapshot into
 `templates/golden/<key>/` → re-pin `sources.yaml`. It **regenerates vanilla only — never
@@ -630,6 +662,14 @@ Two tiers prove the "indistinguishable from hand-built" promise. Because `mise r
 `forge init --stack <key> --remote none` (the primary consumer of `--remote none`) → `mise
 install` → `mise run ci` exits 0 → clean initial commit through pre-commit gates → **assert no
 network access occurred**.
+
+**JS-stack amendment (ADR-0014):** stacks whose init runs `npm install` cannot install
+offline (the lockfile is deliberately not vendored). Their hermetic tier stubs `npm` — proving
+composition, gate-task shape, and lifecycle wiring, with the non-JS half running for real —
+and the real JS toolchain proof moves to a **network-gated tier** (`FORGE_SMOKE_NETWORK=1`,
+`cmd/forge/walking_skeleton_network_test.go`), mirroring how §16.2 gates on gh credentials.
+Once installed, `mise run ci` is local except `npm audit` (kept in ci deliberately, like
+`pip-audit`/`govulncheck`).
 
 ### 16.2 Full golden path (gated behind gh credentials; nightly/opt-in)
 
@@ -696,8 +736,9 @@ forge/                              # source repo
 │   │   ├── claude/{settings.json, settings.local.json.tmpl, hooks/{guard, secret-scan.sh}}
 │   │   └── codex/hooks.json         # [verbatim]
 │   ├── seed/skills.json.tmpl        # [embed] default skill list, rendered in memory at init
-│   ├── gitignore/                   # [embed] vendored github/gitignore per language
+│   ├── gitignore/                   # [embed] vendored github/gitignore per language (Go, Python, VisualStudio, Node)
 │   └── golden/<key>/                # [embed] pinned snapshots + .forge-overlay/ per v1 stack
+│                                    #   typescript keys double as fullstack web/ fragments (ADR-0013)
 └── docs/                            # PRD.md, SPEC.md, adr/, handoffs/, superpowers/
 
 # Scaffolded output (what the verification test inspects):

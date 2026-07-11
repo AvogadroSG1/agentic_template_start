@@ -6,16 +6,27 @@ This repository is the generator itself. It owns the embedded templates, stack s
 
 ## What It Generates
 
-V1 ships six stacks across three languages:
+V1 ships twelve stacks across four languages:
 
 | Language | Project Type | Stack Key |
 |---|---|---|
 | Go | CLI | `go-cli-cobra` |
 | Go | API | `go-api-chi` |
+| Go | fullstack | `go-web-templ` (templ + HTMX) |
 | Python | CLI | `python-cli-typer` |
 | Python | API | `python-fastapi` |
+| Python | fullstack | `python-web-jinja` (FastAPI + Jinja2 + HTMX) |
 | C# | CLI | `csharp-cli` |
 | C# | API | `csharp-webapi` |
+| C# | fullstack | `csharp-blazor` (Blazor Web App, Interactive Auto) |
+| TypeScript | frontend | `vite-ts` (Vite vanilla-ts, prescribed src/ layout) |
+| TypeScript | frontend | `sveltekit` |
+| TypeScript | frontend | `angular` (standalone + signals) |
+
+The api stacks also accept `--project-type fullstack` plus `--frontend
+vite-ts|sveltekit|angular`, composing the chosen frontend under `web/` wired to the
+backend's `/health`. The TypeScript stacks scaffold standalone frontend repos whose typed
+API client points at `--api-base-url` (a third-party API or an existing backend).
 
 Each shipped stack is expected to scaffold a repo that can run `mise install` and `mise run ci` with at least one real passing test.
 
@@ -52,6 +63,7 @@ To run `forge init` end to end, you also need:
   - Go stacks: `cobra-cli` or `go`
   - Python stacks: `uv`
   - C# stacks: `dotnet`
+  - TypeScript stacks (and fullstack frontends): `node` / `npm`
 - optional remote publishing:
   - `gh` for `--remote gh`
 
@@ -160,6 +172,8 @@ Key flags:
 - `--language`
 - `--project-type`
 - `--stack`
+- `--frontend vite-ts|sveltekit|angular` for fullstack projects on an api backend stack
+- `--api-base-url` for frontend projects (fullstack derives it from the backend port)
 - `--author-name`
 - `--author-email`
 - `--remote gh|url|none`

@@ -99,7 +99,7 @@ func InferLanguage(contents string) (string, error) {
 		return "", err
 	}
 
-	matches := make([]string, 0, 3)
+	matches := make([]string, 0, 4)
 	if strings.Contains(block, `"Bash(go:*)",`) {
 		matches = append(matches, "go")
 	}
@@ -108,6 +108,9 @@ func InferLanguage(contents string) (string, error) {
 	}
 	if strings.Contains(block, `"Bash(dotnet:*)",`) {
 		matches = append(matches, "csharp")
+	}
+	if strings.Contains(block, `"Bash(tsc:*)",`) {
+		matches = append(matches, "typescript")
 	}
 
 	switch len(matches) {
@@ -120,7 +123,18 @@ func InferLanguage(contents string) (string, error) {
 	}
 }
 
-func CanonicalBlock(assets fs.FS, language string, includePersonal bool) (string, error) {
+// InferFrontend reports whether the managed block carries the fullstack
+// frontend rules: node tooling next to a non-typescript language slice.
+func InferFrontend(contents string) bool {
+	block, err := extractManagedBlock(contents)
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(block, `"Bash(npm:*)",`) && !strings.Contains(block, `"Bash(tsc:*)",`)
+}
+
+func CanonicalBlock(assets fs.FS, language string, frontend bool, includePersonal bool) (string, error) {
 	data, err := fs.ReadFile(assets, "templates/common/claude/settings.local.json.tmpl")
 	if err != nil {
 		return "", err
@@ -131,12 +145,19 @@ func CanonicalBlock(assets fs.FS, language string, includePersonal bool) (string
 		return "", err
 	}
 
+	frontendMarker := ""
+	if frontend {
+		frontendMarker = "frontend"
+	}
+
 	var rendered bytes.Buffer
 	if err := tmpl.Execute(&rendered, struct {
 		Language        string
+		Frontend        string
 		IncludePersonal bool
 	}{
 		Language:        strings.TrimSpace(language),
+		Frontend:        frontendMarker,
 		IncludePersonal: includePersonal,
 	}); err != nil {
 		return "", err
