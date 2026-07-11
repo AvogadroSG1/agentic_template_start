@@ -4,7 +4,6 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
-using {{.CSharpNamespace}}.Controllers;
 
 /// <summary>
 /// Verifies the health endpoint wiring consumed by frontends.
@@ -17,10 +16,10 @@ public sealed class HealthEndpointTests
     [Fact]
     public void HealthEndpointReportsOk()
     {
-        var controller = new HealthController();
+        var controller = new {{.CSharpNamespace}}.Controllers.HealthController();
 
         var result = Assert.IsType<OkObjectResult>(controller.Get());
-        var payload = Assert.IsType<HealthStatus>(result.Value);
+        var payload = Assert.IsType<{{.CSharpNamespace}}.Controllers.HealthStatus>(result.Value);
         Assert.Equal("ok", payload.Status);
     }
 }

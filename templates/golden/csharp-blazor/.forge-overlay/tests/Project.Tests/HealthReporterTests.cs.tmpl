@@ -3,7 +3,6 @@
 // </copyright>
 
 using Xunit;
-using {{.CSharpNamespace}};
 
 /// <summary>
 /// Verifies the health wiring shared by the endpoint and the home page.
@@ -16,7 +15,7 @@ public sealed class HealthReporterTests
     [Fact]
     public void HealthReporterReportsOk()
     {
-        IHealthReporter reporter = new HealthReporter();
+        {{.CSharpNamespace}}.IHealthReporter reporter = new {{.CSharpNamespace}}.HealthReporter();
 
         Assert.Equal("ok", reporter.Current().Status);
     }

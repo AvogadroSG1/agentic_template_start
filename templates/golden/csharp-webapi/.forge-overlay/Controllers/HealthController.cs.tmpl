@@ -23,10 +23,4 @@ namespace {{.CSharpNamespace}}.Controllers
             return this.Ok(new HealthStatus("ok"));
         }
     }
-
-    /// <summary>
-    /// The health payload contract.
-    /// </summary>
-    /// <param name="Status">The reported status value.</param>
-    public sealed record HealthStatus(string Status);
 }

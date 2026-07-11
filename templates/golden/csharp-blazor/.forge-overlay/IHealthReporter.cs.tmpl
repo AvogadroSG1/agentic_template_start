@@ -1,0 +1,18 @@
+// <copyright file="IHealthReporter.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+namespace {{.CSharpNamespace}}
+{
+    /// <summary>
+    /// Reports application liveness to the endpoint and components.
+    /// </summary>
+    public interface IHealthReporter
+    {
+        /// <summary>
+        /// Returns the current health payload.
+        /// </summary>
+        /// <returns>The health payload.</returns>
+        HealthStatus Current();
+    }
+}

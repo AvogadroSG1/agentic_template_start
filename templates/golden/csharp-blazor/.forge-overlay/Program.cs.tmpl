@@ -7,6 +7,7 @@ using {{.CSharpNamespace}}.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 builder.Services.AddSingleton<{{.CSharpNamespace}}.IHealthReporter, {{.CSharpNamespace}}.HealthReporter>();
 
@@ -28,6 +29,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapGet("/health", ({{.CSharpNamespace}}.IHealthReporter reporter) => Results.Ok(reporter.Current()));
 app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof({{.CSharpNamespace}}.Client._Imports).Assembly);
 
