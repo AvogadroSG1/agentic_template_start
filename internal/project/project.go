@@ -20,6 +20,8 @@ type Input struct {
 	Language    string
 	ProjectType string
 	Stack       string
+	Frontend    string
+	APIBaseURL  string
 	AuthorName  string
 	AuthorEmail string
 	GitHubUser  string
@@ -34,6 +36,10 @@ type Variables struct {
 	Language        string
 	ProjectType     string
 	Stack           string
+	Frontend        string
+	APIBaseURL      string
+	BackendPort     string
+	NpmPackage      string
 	AuthorName      string
 	AuthorEmail     string
 	Remote          RemoteKind
@@ -45,6 +51,17 @@ type Variables struct {
 	CSharpNamespace string
 	RepoSlug        string
 	IncludePersonal bool
+}
+
+// backendPorts maps each stack that serves HTTP to the port its walking
+// skeleton listens on, so the frontend API client default can point at it.
+var backendPorts = map[string]string{
+	"go-api-chi":       "8080",
+	"go-web-templ":     "8080",
+	"python-fastapi":   "8000",
+	"python-web-jinja": "8000",
+	"csharp-webapi":    "5000",
+	"csharp-blazor":    "5000",
 }
 
 var nonAlphaNumeric = regexp.MustCompile(`[^a-z0-9]+`)
@@ -86,11 +103,22 @@ func ResolveVariables(input Input) (Variables, error) {
 		}
 	}
 
+	stack := strings.TrimSpace(input.Stack)
+	backendPort := backendPorts[stack]
+	apiBaseURL := strings.TrimSpace(input.APIBaseURL)
+	if apiBaseURL == "" && strings.TrimSpace(input.Frontend) != "" && backendPort != "" {
+		apiBaseURL = fmt.Sprintf("http://localhost:%s", backendPort)
+	}
+
 	return Variables{
 		ProjectName:     projectName,
 		Language:        normalize(input.Language),
 		ProjectType:     normalize(input.ProjectType),
-		Stack:           strings.TrimSpace(input.Stack),
+		Stack:           stack,
+		Frontend:        strings.TrimSpace(input.Frontend),
+		APIBaseURL:      apiBaseURL,
+		BackendPort:     backendPort,
+		NpmPackage:      slugKebab(slugWords),
 		AuthorName:      strings.TrimSpace(input.AuthorName),
 		AuthorEmail:     strings.TrimSpace(input.AuthorEmail),
 		Remote:          input.Remote,

@@ -92,3 +92,91 @@ csharp-webapi:
   resolved:
     ref: "dotnet-sdk 10.0.203"
     captured: "2026-06-20"
+
+go-web-templ:
+  kind: scaffolder
+  steps:
+    - run: "go mod init {{.ModulePath}}"
+    - run: "go get github.com/a-h/templ@v0.3.1020 github.com/go-chi/chi/v5@v5.3.1 github.com/google/go-cmp@v0.7.0"
+  gitignore: Go
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "templ v0.3.1020"
+    captured: "2026-07-11"
+
+python-web-jinja:
+  kind: scaffolder
+  steps:
+    - run: "uv init"
+    - run: "uv add fastapi jinja2 'uvicorn[standard]'"
+  gitignore: Python
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "uv 0.8.17"
+    captured: "2026-07-11"
+
+csharp-blazor:
+  kind: scaffolder
+  steps:
+    - run: "dotnet new blazor --interactivity Auto --framework net10.0"
+  gitignore: VisualStudio
+  normalize:
+    - type: line_endings
+    - type: trailing_newline
+    - type: replace_guid
+      paths: ["*.csproj", "*.sln"]
+    - type: sort_files
+  resolved:
+    ref: "dotnet-sdk 10.0.203"
+    captured: "2026-07-11"
+
+vite-ts:
+  kind: scaffolder
+  steps:
+    - run: "npm create vite@8.1.1 -- . --template vanilla-ts"
+  gitignore: Node
+  normalize:
+    - type: strip_paths
+      paths: ["node_modules", "package-lock.json", "dist", ".gitignore", "src/assets/hero.png"]
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "create-vite 8.1.1"
+    captured: "2026-07-11"
+
+sveltekit:
+  kind: scaffolder
+  steps:
+    - run: "npx --yes sv@0.16.2 create . --template minimal --types ts --no-add-ons --no-install"
+  gitignore: Node
+  normalize:
+    - type: strip_paths
+      paths: ["node_modules", "package-lock.json", ".svelte-kit", ".gitignore", ".vscode", "README.md"]
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "sv 0.16.2"
+    captured: "2026-07-11"
+
+angular:
+  kind: scaffolder
+  steps:
+    - run: "npx --yes @angular/cli@21.2.19 new {{.RepoSlug}} --directory . --style css --ssr false --skip-git --skip-install --defaults"
+  gitignore: Node
+  normalize:
+    - type: strip_paths
+      paths: ["node_modules", "package-lock.json", ".angular", "dist", ".gitignore", ".vscode", "README.md", "public/favicon.ico"]
+    - type: line_endings
+    - type: trailing_newline
+    - type: sort_files
+  resolved:
+    ref: "@angular/cli 21.2.19"
+    captured: "2026-07-11"

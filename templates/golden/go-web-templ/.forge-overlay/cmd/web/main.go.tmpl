@@ -1,0 +1,19 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+
+	"{{.ModulePath}}/internal/web"
+)
+
+func main() {
+	logger := log.New(os.Stdout, "web ", log.LstdFlags)
+	handler := web.NewServer("{{.ProjectName}}", logger)
+
+	logger.Println("listening on :8080")
+	if err := http.ListenAndServe(":8080", handler); err != nil {
+		logger.Fatal(err)
+	}
+}

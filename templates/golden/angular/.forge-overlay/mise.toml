@@ -1,0 +1,15 @@
+[tools]
+node = "24"
+lefthook = "latest"
+
+[tasks.fmt]
+run = "npm run fmt"
+
+[tasks.lint]
+run = "npm run lint && npm run typecheck"
+
+[tasks.test]
+run = "npm test"
+
+[tasks.ci]
+run = "mise run fmt && mise run lint && mise run test && npm audit --audit-level=high"

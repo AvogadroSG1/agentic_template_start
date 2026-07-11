@@ -599,3 +599,122 @@ func lastArg(args []string) string {
 
 	return args[len(args)-1]
 }
+
+func TestInitializerRunsNpmInstallForTypescriptProjects(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Node.gitignore":           {Data: []byte("node_modules/\n")},
+		"templates/golden/vite-ts/package.json.tmpl":   {Data: []byte("{\"name\": \"{{.NpmPackage}}\"}\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Web App",
+		Language:    "typescript",
+		ProjectType: "frontend",
+		Stack:       "vite-ts",
+		APIBaseURL:  "https://api.example.com",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := []string{
+		"git init",
+		"git identity name",
+		"git identity email",
+		"bd init",
+		"instill bootstrap",
+		"instill init",
+		"instill sync",
+		"mise trust",
+		"mise install",
+		"npm install",
+		"lefthook install",
+		"git add",
+		"git commit",
+	}
+	if got := runner.stepNames(); !equalStrings(got, want) {
+		t.Fatalf("step order = %#v, want %#v", got, want)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "npm install", "exec", "--", "npm", "install")
+}
+
+func TestInitializerRunsWebNpmInstallForFullstackProjects(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/gitignore/Node.gitignore":           {Data: []byte("node_modules/\n")},
+		"templates/golden/go-api-chi/go.mod.tmpl":      {Data: []byte("module {{.ModulePath}}\n")},
+		"templates/golden/vite-ts/package.json.tmpl":   {Data: []byte("{\"name\": \"{{.NpmPackage}}\"}\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Full App",
+		Language:    "go",
+		ProjectType: "fullstack",
+		Stack:       "go-api-chi",
+		Frontend:    "vite-ts",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := []string{
+		"git init",
+		"git identity name",
+		"git identity email",
+		"bd init",
+		"instill bootstrap",
+		"instill init",
+		"instill sync",
+		"mise trust",
+		"mise install",
+		"go mod tidy",
+		"npm install (web)",
+		"lefthook install",
+		"git add",
+		"git commit",
+	}
+	if got := runner.stepNames(); !equalStrings(got, want) {
+		t.Fatalf("step order = %#v, want %#v", got, want)
+	}
+
+	assertRecordedStepArgs(t, runner.steps, "npm install (web)", "exec", "--", "npm", "--prefix", "web", "install")
+}

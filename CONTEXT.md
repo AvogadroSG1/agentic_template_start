@@ -98,3 +98,25 @@ proves the repo is *complete*, local-release proves the code *works*.
 ---
 
 > **Note on "floor".** The word is used in two distinct senses, deliberately: the **deny floor** (the stable set of *safety* rules the guard blocks) and the **guideline floor** (the *minimum* set of tools an overlay must install). They are unrelated mechanisms that share a metaphor. The PRD's "safety floor" is the deny-floor sense.
+
+### Frontend fragment
+A typescript frontend stack (`vite-ts`, `sveltekit`, `angular`) composed a second time
+under `web/` in a fullstack repo. The same golden tree serves standalone `frontend`
+projects at the repo root; in fragment mode its root gate files are skipped because the
+backend overlay owns the repo's gates (ADR-0013).
+
+### Native fullstack stack
+A single-tree `fullstack` stack in the backend's own language — `go-web-templ`,
+`python-web-jinja`, `csharp-blazor`. It IS the fullstack (server-rendered UI wired to the
+same `/health` contract), so the frontend question is skipped for it.
+
+### Root gate files
+The files that define a repo's gate pipeline — `mise.toml`, `lefthook.yml`,
+`.github/workflows/ci.yml`. Exactly one set exists per generated repo; in fullstack mode
+the backend overlay's templated copies own them and the frontend fragment's copies are
+dropped at composition.
+
+### Backend port
+The port a backend stack's walking skeleton listens on (chi 8080, uvicorn 8000, Kestrel
+5000). Drives the derived `APIBaseURL` a fullstack frontend's API client targets by
+default; overridable at runtime via `VITE_API_BASE_URL` or the Angular environment file.

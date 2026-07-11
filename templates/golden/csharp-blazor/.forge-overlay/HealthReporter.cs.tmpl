@@ -1,0 +1,31 @@
+// <copyright file="HealthReporter.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+namespace {{.CSharpNamespace}}
+{
+    /// <summary>
+    /// The health payload contract shared by the endpoint and the UI.
+    /// </summary>
+    /// <param name="Status">The reported status value.</param>
+    public sealed record HealthStatus(string Status);
+
+    /// <summary>
+    /// Reports application liveness to the endpoint and components.
+    /// </summary>
+    public interface IHealthReporter
+    {
+        /// <summary>
+        /// Returns the current health payload.
+        /// </summary>
+        /// <returns>The health payload.</returns>
+        HealthStatus Current();
+    }
+
+    /// <inheritdoc />
+    public sealed class HealthReporter : IHealthReporter
+    {
+        /// <inheritdoc />
+        public HealthStatus Current() => new("ok");
+    }
+}

@@ -22,21 +22,41 @@ func (w Writer) Write(targetDir string, vars project.Variables) error {
 		return err
 	}
 
-	if err := w.copyTree("templates/common", targetDir, vars); err != nil {
+	if err := w.copyTree("templates/common", targetDir, "", vars, nil); err != nil {
 		return err
 	}
 
 	stackRoot := filepath.ToSlash(filepath.Join("templates/golden", vars.Stack))
-	if err := w.copyTree(stackRoot, targetDir, vars); err != nil {
+	if err := w.copyTree(stackRoot, targetDir, "", vars, nil); err != nil {
 		return err
 	}
 
 	overlayRoot := filepath.ToSlash(filepath.Join(stackRoot, ".forge-overlay"))
-	if err := w.copyTree(overlayRoot, targetDir, vars); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := w.copyTree(overlayRoot, targetDir, "", vars, nil); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
-	if err := w.writeGitIgnore(targetDir, vars.Language); err != nil {
+	if vars.Frontend != "" {
+		frontendRoot := filepath.ToSlash(filepath.Join("templates/golden", vars.Frontend))
+		if err := w.copyTree(frontendRoot, targetDir, frontendFragmentDir, vars, nil); err != nil {
+			return err
+		}
+
+		frontendOverlayRoot := filepath.ToSlash(filepath.Join(frontendRoot, ".forge-overlay"))
+		if err := w.copyTree(frontendOverlayRoot, targetDir, frontendFragmentDir, vars, skipRootGateFiles); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
+
+	stem, err := gitignoreStem(vars.Language)
+	if err != nil {
+		return err
+	}
+	stems := []string{stem}
+	if vars.Frontend != "" && stem != "Node" {
+		stems = append(stems, "Node")
+	}
+	if err := w.writeGitIgnore(targetDir, stems); err != nil {
 		return err
 	}
 
@@ -70,7 +90,26 @@ func ensureWritableDir(targetDir string) error {
 	return nil
 }
 
-func (w Writer) copyTree(root string, targetDir string, vars project.Variables) error {
+// frontendFragmentDir is where a fullstack repo hosts its frontend tree.
+const frontendFragmentDir = "web"
+
+// skipRootGateFiles drops a frontend fragment's gate files: in fullstack
+// mode the backend overlay's templated mise.toml/lefthook.yml/ci.yml own
+// the whole repo, so the fragment must not ship competing copies.
+func skipRootGateFiles(path string) bool {
+	switch {
+	case path == "mise.toml" || path == "mise.toml.tmpl":
+		return true
+	case path == "lefthook.yml":
+		return true
+	case path == ".github" || strings.HasPrefix(path, ".github/"):
+		return true
+	default:
+		return false
+	}
+}
+
+func (w Writer) copyTree(root string, targetDir string, destPrefix string, vars project.Variables, skip func(relPath string) bool) error {
 	sub, err := fs.Sub(w.Assets, root)
 	if err != nil {
 		return err
@@ -89,8 +128,14 @@ func (w Writer) copyTree(root string, targetDir string, vars project.Variables) 
 		if strings.HasPrefix(path, ".forge-overlay/") {
 			return fs.SkipDir
 		}
+		if skip != nil && skip(path) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
 
-		targetPath := filepath.Join(targetDir, mapOutputPath(path))
+		targetPath := filepath.Join(targetDir, destPrefix, mapOutputPath(path))
 		if d.IsDir() {
 			return os.MkdirAll(targetPath, 0o755)
 		}
@@ -147,17 +192,8 @@ func renderTemplate(name string, data []byte, vars project.Variables) ([]byte, e
 	return buf.Bytes(), nil
 }
 
-func (w Writer) writeGitIgnore(targetDir string, language string) error {
+func (w Writer) writeGitIgnore(targetDir string, stems []string) error {
 	base, err := fs.ReadFile(w.Assets, "templates/common/gitignore.base")
-	if err != nil {
-		return err
-	}
-
-	stem, err := gitignoreStem(language)
-	if err != nil {
-		return err
-	}
-	lang, err := fs.ReadFile(w.Assets, filepath.ToSlash(filepath.Join("templates/gitignore", stem+".gitignore")))
 	if err != nil {
 		return err
 	}
@@ -167,8 +203,17 @@ func (w Writer) writeGitIgnore(targetDir string, language string) error {
 	if len(base) > 0 && base[len(base)-1] != '\n' {
 		buf.WriteByte('\n')
 	}
-	fmt.Fprintf(&buf, "# ===== %s gitignore =====\n", strings.ToLower(stem))
-	buf.Write(lang)
+	for _, stem := range stems {
+		lang, err := fs.ReadFile(w.Assets, filepath.ToSlash(filepath.Join("templates/gitignore", stem+".gitignore")))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&buf, "# ===== %s gitignore =====\n", strings.ToLower(stem))
+		buf.Write(lang)
+		if len(lang) > 0 && lang[len(lang)-1] != '\n' {
+			buf.WriteByte('\n')
+		}
+	}
 
 	return os.WriteFile(filepath.Join(targetDir, ".gitignore"), buf.Bytes(), 0o644)
 }
@@ -181,6 +226,8 @@ func gitignoreStem(language string) (string, error) {
 		return "Python", nil
 	case "csharp":
 		return "VisualStudio", nil
+	case "typescript":
+		return "Node", nil
 	default:
 		return "", fmt.Errorf("unsupported language %q", language)
 	}

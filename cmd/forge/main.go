@@ -78,6 +78,8 @@ func runInit(args []string, assets fs.FS) error {
 	flags.StringVar(&inputs.Language, "language", "", "Language")
 	flags.StringVar(&inputs.ProjectType, "project-type", "", "Project type")
 	flags.StringVar(&inputs.Stack, "stack", "", "Stack key")
+	flags.StringVar(&inputs.Frontend, "frontend", "", "Frontend fragment for fullstack projects (vite-ts|sveltekit|angular)")
+	flags.StringVar(&inputs.APIBaseURL, "api-base-url", "", "API base URL the frontend client targets")
 	flags.StringVar(&inputs.AuthorName, "author-name", gitConfig("user.name"), "Author name")
 	flags.StringVar(&inputs.AuthorEmail, "author-email", gitConfig("user.email"), "Author email")
 	flags.StringVar(&inputs.GitHubUser, "github-user", "", "GitHub user for module path derivation")
@@ -143,7 +145,7 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 	if err != nil {
 		return err
 	}
-	block, err := allowlist.CanonicalBlock(assets, language, includePersonal)
+	block, err := allowlist.CanonicalBlock(assets, language, allowlist.InferFrontend(string(data)), includePersonal)
 	if err != nil {
 		return err
 	}

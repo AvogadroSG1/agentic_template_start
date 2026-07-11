@@ -1,0 +1,26 @@
+// <copyright file="HealthEndpointTests.cs" company="{{.AuthorName}}">
+// Copyright (c) {{.AuthorName}}. All rights reserved.
+// </copyright>
+
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+using {{.CSharpNamespace}}.Controllers;
+
+/// <summary>
+/// Verifies the health endpoint wiring consumed by frontends.
+/// </summary>
+public sealed class HealthEndpointTests
+{
+    /// <summary>
+    /// Ensures the health controller reports an ok status.
+    /// </summary>
+    [Fact]
+    public void HealthEndpointReportsOk()
+    {
+        var controller = new HealthController();
+
+        var result = Assert.IsType<OkObjectResult>(controller.Get());
+        var payload = Assert.IsType<HealthStatus>(result.Value);
+        Assert.Equal("ok", payload.Status);
+    }
+}

@@ -2,10 +2,11 @@
 go = "1.26.4"
 golangci-lint = "latest"
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+"go:github.com/a-h/templ/cmd/templ" = "v0.3.1020"
 lefthook = "latest"
 
 [tasks.fmt]
-run = "gofmt -w $(find . -name '*.go' -not -path './.git/*')"
+run = "templ generate && gofmt -w $(find . -name '*.go' -not -path './.git/*')"
 
 [tasks.lint]
 run = "golangci-lint run ./..."

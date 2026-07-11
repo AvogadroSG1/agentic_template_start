@@ -1,0 +1,26 @@
+// Typed API client. The base URL is decided at scaffold time and can be
+// overridden per environment via VITE_API_BASE_URL without re-scaffolding.
+export interface HealthStatus {
+  status: string;
+}
+
+const DEFAULT_BASE_URL = '{{.APIBaseURL}}';
+
+export function apiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BASE_URL;
+}
+
+export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
+    ...init,
+    headers: { Accept: 'application/json', ...init?.headers },
+  });
+  if (!response.ok) {
+    throw new Error(`GET ${path} failed: ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+export function health(): Promise<HealthStatus> {
+  return getJson<HealthStatus>('/health');
+}

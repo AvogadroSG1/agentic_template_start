@@ -66,3 +66,85 @@ func TestResolveVariablesRequiresThePromptSeedValues(t *testing.T) {
 		t.Fatal("ResolveVariables() error = nil, want error")
 	}
 }
+
+func TestResolveVariablesDerivesFrontendWiring(t *testing.T) {
+	tests := []struct {
+		name           string
+		stack          string
+		frontend       string
+		apiBaseURL     string
+		wantPort       string
+		wantAPIBaseURL string
+	}{
+		{
+			name:           "fullstack go derives the chi port",
+			stack:          "go-api-chi",
+			frontend:       "vite-ts",
+			wantPort:       "8080",
+			wantAPIBaseURL: "http://localhost:8080",
+		},
+		{
+			name:           "fullstack python derives the uvicorn port",
+			stack:          "python-fastapi",
+			frontend:       "sveltekit",
+			wantPort:       "8000",
+			wantAPIBaseURL: "http://localhost:8000",
+		},
+		{
+			name:           "fullstack csharp derives the kestrel port",
+			stack:          "csharp-webapi",
+			frontend:       "angular",
+			wantPort:       "5000",
+			wantAPIBaseURL: "http://localhost:5000",
+		},
+		{
+			name:           "explicit api base url wins",
+			stack:          "go-api-chi",
+			frontend:       "vite-ts",
+			apiBaseURL:     "https://api.example.com",
+			wantPort:       "8080",
+			wantAPIBaseURL: "https://api.example.com",
+		},
+		{
+			name:           "standalone frontend keeps the provided url",
+			stack:          "vite-ts",
+			apiBaseURL:     "https://api.example.com",
+			wantPort:       "",
+			wantAPIBaseURL: "https://api.example.com",
+		},
+		{
+			name:           "backend without a frontend derives nothing",
+			stack:          "go-api-chi",
+			wantPort:       "8080",
+			wantAPIBaseURL: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vars, err := ResolveVariables(Input{
+				ProjectName: "My Cool App",
+				Language:    "go",
+				ProjectType: "fullstack",
+				Stack:       tt.stack,
+				Frontend:    tt.frontend,
+				APIBaseURL:  tt.apiBaseURL,
+				AuthorName:  "Ada Lovelace",
+				AuthorEmail: "ada@example.com",
+			})
+			if err != nil {
+				t.Fatalf("ResolveVariables() error = %v", err)
+			}
+
+			if vars.BackendPort != tt.wantPort {
+				t.Fatalf("BackendPort = %q, want %q", vars.BackendPort, tt.wantPort)
+			}
+			if vars.APIBaseURL != tt.wantAPIBaseURL {
+				t.Fatalf("APIBaseURL = %q, want %q", vars.APIBaseURL, tt.wantAPIBaseURL)
+			}
+			if vars.NpmPackage != "my-cool-app" {
+				t.Fatalf("NpmPackage = %q, want %q", vars.NpmPackage, "my-cool-app")
+			}
+		})
+	}
+}

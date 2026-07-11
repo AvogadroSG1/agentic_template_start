@@ -12,7 +12,7 @@ import (
 func TestCanonicalGuidelineFilesReachStablePaths(t *testing.T) {
 	checker := newGuidelineChecker(t)
 
-	for _, language := range []string{"golang", "python", "csharp"} {
+	for _, language := range []string{"golang", "python", "csharp", "typescript"} {
 		path, err := checker.guidelinePath(language)
 		if err != nil {
 			t.Fatalf("guideline path for %s: %v", language, err)
@@ -54,7 +54,7 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "golang",
 			files: []string{
 				"templates/golden/go-api-chi/go.mod.tmpl",
-				"templates/golden/go-api-chi/.forge-overlay/mise.toml",
+				"templates/golden/go-api-chi/.forge-overlay/mise.toml.tmpl",
 				"templates/golden/go-api-chi/.forge-overlay/internal/httpapi/health_test.go.tmpl",
 			},
 		},
@@ -72,7 +72,7 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "python",
 			files: []string{
 				"templates/golden/python-fastapi/pyproject.toml.tmpl",
-				"templates/golden/python-fastapi/.forge-overlay/mise.toml",
+				"templates/golden/python-fastapi/.forge-overlay/mise.toml.tmpl",
 				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py",
 			},
 		},
@@ -91,11 +91,66 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			language: "csharp",
 			files: []string{
 				"templates/golden/csharp-webapi/Project.csproj.tmpl",
-				"templates/golden/csharp-webapi/.forge-overlay/mise.toml",
+				"templates/golden/csharp-webapi/.forge-overlay/mise.toml.tmpl",
 				"templates/golden/csharp-webapi/WeatherForecast.cs.tmpl",
 				"templates/golden/csharp-webapi/Controllers/WeatherForecastController.cs.tmpl",
 				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
 				"templates/golden/csharp-webapi/.forge-overlay/tests/Project.Tests/WeatherForecastEndpointTests.cs",
+			},
+		},
+		{
+			name:     "go-web-templ",
+			language: "golang",
+			files: []string{
+				"templates/golden/go-web-templ/go.mod.tmpl",
+				"templates/golden/go-web-templ/.forge-overlay/mise.toml",
+				"templates/golden/go-web-templ/.forge-overlay/internal/web/server_test.go",
+			},
+		},
+		{
+			name:     "python-web-jinja",
+			language: "python",
+			files: []string{
+				"templates/golden/python-web-jinja/pyproject.toml.tmpl",
+				"templates/golden/python-web-jinja/.forge-overlay/mise.toml",
+				"templates/golden/python-web-jinja/.forge-overlay/tests/test_health.py",
+			},
+		},
+		{
+			name:     "csharp-blazor",
+			language: "csharp",
+			files: []string{
+				"templates/golden/csharp-blazor/Project.csproj.tmpl",
+				"templates/golden/csharp-blazor/.forge-overlay/mise.toml",
+				"templates/golden/csharp-blazor/.forge-overlay/tests/Project.Tests/Project.Tests.csproj.tmpl",
+				"templates/golden/csharp-blazor/.forge-overlay/tests/Project.Tests/HealthReporterTests.cs.tmpl",
+			},
+		},
+		{
+			name:     "vite-ts",
+			language: "typescript",
+			files: []string{
+				"templates/golden/vite-ts/.forge-overlay/package.json.tmpl",
+				"templates/golden/vite-ts/.forge-overlay/mise.toml",
+				"templates/golden/vite-ts/.forge-overlay/src/api/client.test.ts",
+			},
+		},
+		{
+			name:     "sveltekit",
+			language: "typescript",
+			files: []string{
+				"templates/golden/sveltekit/.forge-overlay/package.json.tmpl",
+				"templates/golden/sveltekit/.forge-overlay/mise.toml",
+				"templates/golden/sveltekit/.forge-overlay/src/lib/api/client.test.ts",
+			},
+		},
+		{
+			name:     "angular",
+			language: "typescript",
+			files: []string{
+				"templates/golden/angular/.forge-overlay/package.json.tmpl",
+				"templates/golden/angular/.forge-overlay/mise.toml",
+				"templates/golden/angular/.forge-overlay/src/app/api/client.spec.ts",
 			},
 		},
 	}
@@ -143,7 +198,6 @@ func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
 		language string
 		file     string
 	}{
-		{"typescript", "typescript.md"},
 		{"rust", "rust.md"},
 		{"bash", "bash.md"},
 	} {
@@ -163,7 +217,7 @@ func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
 func TestShippedTemplateWithoutGuidelineBackedLanguageFails(t *testing.T) {
 	checker := newGuidelineChecker(t)
 
-	err := checker.checkEvidence("typescript", []evidenceFile{{path: "synthetic-typescript-overlay", content: "npm test"}})
+	err := checker.checkEvidence("rust", []evidenceFile{{path: "synthetic-rust-overlay", content: "cargo test"}})
 	if err == nil {
 		t.Fatal("expected missing canonical guideline error")
 	}
@@ -271,9 +325,10 @@ func (c guidelineChecker) requiredTools(language string) ([]toolRequirement, err
 
 func (c guidelineChecker) guidelinePath(language string) (string, error) {
 	fileName, ok := map[string]string{
-		"golang": "golang.md",
-		"python": "python.md",
-		"csharp": "csharp.md",
+		"golang":     "golang.md",
+		"python":     "python.md",
+		"csharp":     "csharp.md",
+		"typescript": "typescript.md",
 	}[language]
 	if !ok {
 		return "", fmt.Errorf("no canonical guideline file for %s", language)
@@ -339,6 +394,13 @@ var languageRequirementSpecs = map[string][]toolRequirement{
 		{key: "pytest-mock", guidelineNeedle: "`pytest-mock`", evidenceAll: []string{"pytest-mock"}},
 		{key: "pyright", guidelineNeedle: "`pyright`", evidenceAll: []string{"pyright"}},
 		{key: "pip-audit", guidelineNeedle: "`pip-audit`", evidenceAll: []string{"pip-audit"}},
+	},
+	"typescript": {
+		{key: "prettier", guidelineNeedle: "`prettier`", evidenceAll: []string{"prettier --write"}},
+		{key: "eslint", guidelineNeedle: "`eslint`", evidenceAll: []string{"eslint ."}},
+		{key: "vitest", guidelineNeedle: "`vitest`", evidenceAll: []string{"vitest"}},
+		{key: "typecheck", guidelineNeedle: "`typecheck` script", evidenceAll: []string{"\"typecheck\":"}},
+		{key: "npm audit", guidelineNeedle: "`npm audit`", evidenceAll: []string{"npm audit --audit-level=high"}},
 	},
 	"csharp": {
 		{key: "dotnet format", guidelineNeedle: "`dotnet format`", evidenceAll: []string{"dotnet format"}},
