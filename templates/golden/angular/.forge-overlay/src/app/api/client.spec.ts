@@ -2,27 +2,42 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiClient } from './client';
 
+function okJson(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 describe('ApiClient', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   it('parses the health payload from the API', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ status: 'ok' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ status: 'ok' }));
     vi.stubGlobal('fetch', fetchMock);
 
     const status = await new ApiClient().health();
 
     expect(status).toEqual({ status: 'ok' });
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringMatching(/\/health$/),
-      expect.objectContaining({ headers: expect.objectContaining({ Accept: 'application/json' }) }),
-    );
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/health$/);
+    expect(new Headers(init.headers).get('Accept')).toBe('application/json');
+  });
+
+  it('preserves caller-supplied headers when merging', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ status: 'ok' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new ApiClient().getJson('/health', {
+      headers: new Headers({ 'X-Request-Id': 'abc-123' }),
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get('X-Request-Id')).toBe('abc-123');
+    expect(headers.get('Accept')).toBe('application/json');
   });
 
   it('throws on a non-2xx response', async () => {
