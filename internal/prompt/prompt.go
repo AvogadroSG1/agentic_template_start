@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"forge/internal/catalog"
@@ -173,15 +174,39 @@ func resolveFrontend(input Inputs, prompter Prompter, projectType, stackKey stri
 func resolveAPIBaseURL(input Inputs, prompter Prompter, projectType string) (string, error) {
 	switch projectType {
 	case "frontend":
-		return resolveValue(input.APIBaseURL, input.IsTTY, prompter, "api-base-url", "API base URL", nil, "http://localhost:8080")
+		value, err := resolveValue(input.APIBaseURL, input.IsTTY, prompter, "api-base-url", "API base URL", nil, "http://localhost:8080")
+		if err != nil {
+			return "", err
+		}
+		return validateAPIBaseURL(value)
 	case "fullstack":
-		return strings.TrimSpace(input.APIBaseURL), nil
+		value := strings.TrimSpace(input.APIBaseURL)
+		if value == "" {
+			return "", nil
+		}
+		return validateAPIBaseURL(value)
 	default:
 		if strings.TrimSpace(input.APIBaseURL) != "" {
 			return "", fmt.Errorf("--api-base-url only applies to frontend and fullstack projects")
 		}
 		return "", nil
 	}
+}
+
+// validateAPIBaseURL rejects malformed input at the boundary so the value is
+// safe by construction when rendered into a generated TS string literal,
+// then trims trailing slashes (the clients append rooted paths).
+func validateAPIBaseURL(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if strings.ContainsAny(value, "'\"\\`") {
+		return "", fmt.Errorf("invalid --api-base-url %q (must be an absolute http(s) URL)", value)
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", fmt.Errorf("invalid --api-base-url %q (must be an absolute http(s) URL)", value)
+	}
+
+	return strings.TrimRight(value, "/"), nil
 }
 
 func resolveValue(current string, isTTY bool, prompter Prompter, flagName string, label string, choices []string, defaultValue string) (string, error) {

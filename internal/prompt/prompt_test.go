@@ -389,3 +389,69 @@ func TestResolveAcceptsAPIBaseURLOverrideForFullstack(t *testing.T) {
 		t.Fatalf("Resolve() prompts = %#v, should not ask for api-base-url on fullstack", prompter.calls)
 	}
 }
+
+func TestResolveValidatesAPIBaseURL(t *testing.T) {
+	t.Parallel()
+
+	frontendInputs := func(apiBaseURL string) Inputs {
+		return Inputs{
+			ProjectName: "Sample App",
+			Language:    "typescript",
+			Stack:       "vite-ts",
+			APIBaseURL:  apiBaseURL,
+			AuthorName:  "Ada",
+			AuthorEmail: "ada@example.com",
+			Remote:      "none",
+		}
+	}
+
+	t.Run("rejects values with quotes or backslashes", func(t *testing.T) {
+		for _, value := range []string{
+			"https://api.example.com/'",
+			`https://api.example.com/"`,
+			`https://api.example.com\path`,
+			"https://api.example.com/`",
+		} {
+			_, err := Resolve(frontendInputs(value), nil)
+			if err == nil || !strings.Contains(err.Error(), "invalid --api-base-url") {
+				t.Fatalf("Resolve(%q) error = %v, want invalid api-base-url", value, err)
+			}
+		}
+	})
+
+	t.Run("rejects non-URLs and non-http schemes", func(t *testing.T) {
+		for _, value := range []string{"not a url", "ftp://api.example.com", "localhost:8080"} {
+			_, err := Resolve(frontendInputs(value), nil)
+			if err == nil || !strings.Contains(err.Error(), "invalid --api-base-url") {
+				t.Fatalf("Resolve(%q) error = %v, want invalid api-base-url", value, err)
+			}
+		}
+	})
+
+	t.Run("accepts absolute http urls and trims trailing slashes", func(t *testing.T) {
+		resolved, err := Resolve(frontendInputs("https://api.example.com/"), nil)
+		if err != nil {
+			t.Fatalf("Resolve() error = %v", err)
+		}
+		if resolved.APIBaseURL != "https://api.example.com" {
+			t.Fatalf("APIBaseURL = %q, want trailing slash trimmed", resolved.APIBaseURL)
+		}
+	})
+
+	t.Run("validates the fullstack override too", func(t *testing.T) {
+		_, err := Resolve(Inputs{
+			ProjectName: "Sample App",
+			Language:    "go",
+			ProjectType: "fullstack",
+			Stack:       "go-api-chi",
+			Frontend:    "vite-ts",
+			APIBaseURL:  "https://api.example.com/'",
+			AuthorName:  "Ada",
+			AuthorEmail: "ada@example.com",
+			Remote:      "none",
+		}, nil)
+		if err == nil || !strings.Contains(err.Error(), "invalid --api-base-url") {
+			t.Fatalf("Resolve() error = %v, want invalid api-base-url", err)
+		}
+	})
+}
