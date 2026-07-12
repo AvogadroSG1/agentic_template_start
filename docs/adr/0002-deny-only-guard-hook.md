@@ -49,9 +49,10 @@ dangerous exceptions only.
   interpreter-class deny (`bash -c`, `python -c`, `eval`, …) as belt-and-suspenders.
 - **Sandbox network: ON, FS-isolation-only.** Network-off would break day-one
   `git push`/`gh repo create`/`bd dolt push`/dependency installs. The seed keeps network
-  enabled and relies on the guard's exfil-channel deny (curl/wget/nc/scp + `/dev/tcp`) for
-  egress control — accepting that OS-level exfil protection is traded for zero network
-  friction.
+  enabled and relies on the guard's exfil-channel deny for raw transfer channels and explicit
+  HTTP upload forms — accepting that OS-level exfil protection is traded for zero network
+  friction. ADR-0015 amends the original executable-name policy: ordinary `curl`/`wget` reads
+  are not denied, while request-data and upload structures remain blocked.
 - Codex parity verified: Codex has `PreToolUse` (same exit-2/deny contract) **and** an
   OS sandbox (Seatbelt/bubblewrap, on by default). Asymmetry to design around: Codex has
   no per-path `denyRead` and only binary `network_access` (no domain allowlist).
