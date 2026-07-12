@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -144,7 +145,14 @@ func TestSharedGuardBlocksDenyFloorAndAllowsSafeCompound(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			status, output := runHookScript(t, repoRoot, guardPath, nil, `{"tool_input":{"command":"`+tt.commandLine+`"}}`)
+			payload, err := json.Marshal(map[string]any{
+				"tool_input": map[string]string{"command": tt.commandLine},
+			})
+			if err != nil {
+				t.Fatalf("Marshal command payload error = %v", err)
+			}
+
+			status, output := runHookScript(t, repoRoot, guardPath, nil, string(payload))
 			if status != tt.wantStatus {
 				t.Fatalf("status = %d, want %d, output = %s", status, tt.wantStatus, output)
 			}
