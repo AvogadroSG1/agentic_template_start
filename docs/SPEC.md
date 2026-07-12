@@ -471,7 +471,7 @@ canonical embedded source file (separate sections), refreshing on independent ca
 | D8 | `git commit --no-verify`/`-n`, `--no-gpg-sign` (never bypass commit hooks) | block |
 | D9 | **Secret path-token scan:** any command line referencing a secret path token (`.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials`, `*secret*`, `*.tfstate`, `.ssh/`, `.aws/`, `.gnupg/`, git-ref forms `HEAD:.env`) — **regardless of binary** (`cat`/`awk`/`python -c`/`git show`/`tar -O`/`base64`/`$(<…)`) | block |
 | D10 | **Env-dump verbs:** bare `env`, `printenv`, `set`, `export -p`, `declare -p/-x`, `typeset -p`, `compgen -v`, `/proc/*/environ`, `launchctl getenv` | block |
-| D11 | **Exfil channels:** `curl`, `wget`, `nc`, `ncat`, `socat`, `scp`, `sftp`, `rsync`, clipboard (`pbcopy`/`xclip`/`xsel`/`wl-copy`), `/dev/tcp/`+`/dev/udp/`, DNS-exfil | block |
+| D11 | **Explicit exfil channels:** `curl` request-data/form/upload/config/query-expansion options; `wget` POST/body data options; `nc`, `ncat`, `socat`, `scp`, `sftp`, `rsync`; clipboard (`pbcopy`/`xclip`/`xsel`/`wl-copy`); `/dev/tcp/`+`/dev/udp/`; DNS-exfil. Ordinary HTTP reads and authentication probes are not denied (ADR-0015). | block |
 | D12 | **System/process control:** `sudo`, `kill`/`killall`/`pkill`, `shutdown`/`reboot` | block |
 | D13 | **Remote shells:** `ssh` | block |
 | D14 | **Destructive docker:** `docker rm`/`rmi`/`system prune` | block |
@@ -496,15 +496,17 @@ canonical embedded source file (separate sections), refreshing on independent ca
   `python/python3/uv/pip/pytest/ruff/pyright/...`; C# → `Bash(dotnet:*)`.
 - **Personal section** (tagged block; stripped by default, included via `--include-personal`):
   `gw/rtk/slack-cli`, cloud CLIs, `brew`, `docker` read ops.
-- **Deliberately OUT** (stay prompting/denied): `curl`, `wget` — the remaining command-layer exfil
-  control; use the `WebFetch` tool instead. These also sit on the deny floor (D11).
+- **Deliberately OUT** (stay prompting): `curl`, `wget`. They remain subject to native explicit
+  approval, while D11 denies only request-data, form, upload, configuration, query-expansion, and
+  POST/body-data forms (ADR-0015). Ordinary HTTP reads and authentication probes are not denied.
 
 ### 11.5 OS sandbox (both agents; FS isolation, network ON)
 
 Claude (`sandbox.enabled` + per-path `denyRead` of `~/.ssh`, `~/.aws`, `~/.gnupg`) and Codex
 (`sandbox_mode = "workspace-write"`, `network_access = true`). **Network is ON** — network-off
-breaks day-one `git push`/`gh repo create`/`bd dolt push`/dependency installs; egress is controlled
-by the guard's D11 exfil deny, accepting that OS-level exfil protection is traded for zero friction.
+breaks day-one `git push`/`gh repo create`/`bd dolt push`/dependency installs. D11 blocks raw
+transfer channels and structurally explicit HTTP uploads; it is not a complete egress firewall
+(ADR-0015). This accepts that OS-level exfil protection is traded for zero network friction.
 Asymmetry: Codex lacks per-path `denyRead` and a domain allowlist (ADR-0002).
 
 ```gherkin
