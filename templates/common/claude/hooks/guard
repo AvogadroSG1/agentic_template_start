@@ -443,11 +443,39 @@ is_git_commit_bypass() {
 }
 
 is_exfil_channel() {
-  local segment="$1" first
+  local segment="$1" first token
+  local tokens=()
   first="$(command_basename "$segment")"
 
+  read -r -a tokens <<<"$segment" || true
+
   case "$first" in
-    curl|wget|nc|ncat|socat|scp|sftp|rsync|pbcopy|xclip|xsel|wl-copy|dig|drill|host|nslookup)
+    curl)
+      for token in "${tokens[@]:1}"; do
+        token="$(normalize_token "$token")"
+        case "$token" in
+          -d|-d?*|-F|-F?*|-T|-T?*|-K|-K?*|--data*|--form*|--upload-file*|--json*|--config*|--url-query*|--variable*|--expand-*)
+            return 0
+            ;;
+        esac
+      done
+      return 1
+      ;;
+    wget)
+      for token in "${tokens[@]:1}"; do
+        token="$(normalize_token "$token")"
+        case "$token" in
+          --post-data*|--post-file*|--body-data*|--body-file*)
+            return 0
+            ;;
+        esac
+      done
+      return 1
+      ;;
+  esac
+
+  case "$first" in
+    nc|ncat|socat|scp|sftp|rsync|pbcopy|xclip|xsel|wl-copy|dig|drill|host|nslookup)
       return 0
       ;;
   esac
