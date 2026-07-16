@@ -228,3 +228,29 @@ func TestRunSetsExecutablePermissionOnHooks(t *testing.T) {
 		t.Fatalf("guard mode = %o, want 755", info.Mode().Perm())
 	}
 }
+
+func TestRunFixesWrongPermissionsOnExistingHooks(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Pre-existing guard with WRONG permissions (0644 instead of 0755)
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(testAssets(), dir, false)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, ".claude", "hooks", "guard"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("guard mode after upgrade = %o, want 755", info.Mode().Perm())
+	}
+}

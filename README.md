@@ -202,6 +202,20 @@ Include personal rules explicitly:
 go run ./cmd/forge sync-allowlist --include-personal
 ```
 
+### Upgrade Infrastructure Files
+
+Check whether a generated repo's infrastructure files are behind:
+
+```bash
+go run ./cmd/forge upgrade --check
+```
+
+Overwrite managed files from the embedded template:
+
+```bash
+go run ./cmd/forge upgrade
+```
+
 ### Refresh A Maintained Snapshot
 
 `update` is a maintainer-only path for regenerating vendored stack snapshots from `sources.yaml`.

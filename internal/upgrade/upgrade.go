@@ -63,6 +63,9 @@ func Run(assets fs.FS, targetDir string, checkOnly bool) (Status, error) {
 		if err := os.WriteFile(dest, data, mf.mode); err != nil {
 			return Status{}, fmt.Errorf("write %s: %w", mf.dest, err)
 		}
+		if err := os.Chmod(dest, mf.mode); err != nil {
+			return Status{}, fmt.Errorf("chmod %s: %w", mf.dest, err)
+		}
 		status.Updated = append(status.Updated, mf.dest)
 	}
 
