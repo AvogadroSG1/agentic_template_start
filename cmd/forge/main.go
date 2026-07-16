@@ -21,6 +21,7 @@ import (
 	"forge/internal/prompt"
 	"forge/internal/scaffold"
 	updatepkg "forge/internal/update"
+	upgradepkg "forge/internal/upgrade"
 )
 
 var errCancelled = errors.New("cancelled")
@@ -47,6 +48,8 @@ func run(args []string, assets fs.FS) error {
 		err = runSyncAllowlist(args, assets)
 	case "update":
 		err = runUpdate(args, assets)
+	case "upgrade":
+		err = runUpgrade(args, assets)
 	default:
 		return fmt.Errorf("unsupported command %q", command)
 	}
@@ -62,7 +65,7 @@ func selectCommand(args []string) (string, []string) {
 	command := "init"
 	if len(args) > 0 {
 		switch args[0] {
-		case "init", "sync-allowlist", "update":
+		case "init", "sync-allowlist", "update", "upgrade":
 			return args[0], args[1:]
 		}
 	}
@@ -178,6 +181,45 @@ func runUpdate(args []string, assets fs.FS) error {
 	}
 
 	return updatepkg.Run(context.Background(), assets, stack, delegate.ExecRunner{}, updatepkg.ExecGitRunner{})
+}
+
+func runUpgrade(args []string, assets fs.FS) error {
+	cwd, err := currentWorkingDir()
+	if err != nil {
+		return err
+	}
+
+	flags := flag.NewFlagSet("forge upgrade", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	var checkOnly bool
+	flags.BoolVar(&checkOnly, "check", false, "Only report staleness")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	status, err := upgradepkg.Run(assets, cwd, checkOnly)
+	if err != nil {
+		return err
+	}
+
+	if checkOnly {
+		if status.Stale {
+			fmt.Printf("forge upgrade: infrastructure is at v%d, current is v%d; run `forge upgrade`\n", status.OnDisk, status.Version)
+			os.Exit(1)
+		}
+		return nil
+	}
+
+	if len(status.Updated) == 0 {
+		fmt.Printf("forge upgrade: infrastructure is current (v%d)\n", status.Version)
+		return nil
+	}
+
+	fmt.Printf("forge upgrade: updated %d files to infrastructure v%d\n", len(status.Updated), status.Version)
+	for _, path := range status.Updated {
+		fmt.Printf("  %s\n", path)
+	}
+	return nil
 }
 
 func currentWorkingDir() (string, error) {
