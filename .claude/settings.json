@@ -38,6 +38,10 @@
           {
             "type": "command",
             "command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"
+          },
+          {
+            "type": "command",
+            "command": "command -v forge >/dev/null 2>&1 && forge upgrade --check || true"
           }
         ]
       }
