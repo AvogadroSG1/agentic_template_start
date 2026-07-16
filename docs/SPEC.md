@@ -167,6 +167,7 @@ Scenario: Remote created but first push fails (gate or network)
 - `forge init` — scaffold a new project in the current dir (Phases 1–3).
 - `forge update` — maintainer-only snapshot refresh (§15).
 - `forge sync-allowlist [--check]` — reconciler (§13).
+- `forge upgrade [--check]` — infrastructure file propagation (§19).
 
 ```gherkin
 Scenario: Bare invocation defaults to init
@@ -792,6 +793,41 @@ flowchart TD
           (edges: ebp ⊣ zz8 · uuw ⊣ walking-skeleton Feature · x2k ⊣ 485)"]
 
     EPIC --> F1 & F2 & F3 & FLAT
+```
+
+---
+
+## 19. Infrastructure upgrade path
+
+`forge upgrade` propagates managed static infrastructure files from the embedded template into an
+existing forge-scaffolded repository. It overwrites `.claude/hooks/guard`,
+`.claude/hooks/secret-scan.sh`, `.claude/settings.json`, and `.codex/hooks.json` unconditionally
+when the on-disk infrastructure version is behind the embedded version.
+
+Version state lives in `.forge-infra-version` (repo root). Missing file → version 0 → always stale.
+The version file is written last so interrupted upgrades re-apply.
+
+`forge upgrade --check` reports staleness (exit 1 if behind) without mutation. The SessionStart
+hooks in both `settings.json` and `codex/hooks.json` run this advisory on every session open.
+
+```gherkin
+Scenario: First upgrade on a legacy repo
+  Given a forge-scaffolded repo with no .forge-infra-version file
+  When the user runs `forge upgrade`
+  Then all managed files are overwritten from the embedded template
+  And .forge-infra-version is created with the current version
+
+Scenario: Upgrade is idempotent
+  Given a repo at infrastructure version N with embedded version N
+  When the user runs `forge upgrade`
+  Then no files are written
+  And output reports "infrastructure is current (vN)"
+
+Scenario: Check mode advisory on session start
+  Given a repo at infrastructure version 1 and embedded version 2
+  When SessionStart fires `forge upgrade --check`
+  Then the hook prints the staleness advisory and exits 1
+  And no files are modified
 ```
 
 ---

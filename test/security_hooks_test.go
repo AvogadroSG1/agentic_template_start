@@ -27,6 +27,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "bd prime || true"`,
 				`"command": "instill sync || true"`,
 				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge upgrade --check || true"`,
 			},
 		},
 		{
@@ -37,6 +38,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "bd prime || true"`,
 				`"command": "instill sync || true"`,
 				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge upgrade --check || true"`,
 			},
 		},
 		{
@@ -47,6 +49,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "bd prime || true"`,
 				`"command": "instill sync || true"`,
 				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge upgrade --check || true"`,
 			},
 		},
 		{
@@ -57,6 +60,7 @@ func TestHookConfigsWireGuardAndNonBlockingSessionStart(t *testing.T) {
 				`"command": "bd prime || true"`,
 				`"command": "instill sync || true"`,
 				`"command": "command -v forge >/dev/null 2>&1 && forge sync-allowlist --check || true"`,
+				`"command": "command -v forge >/dev/null 2>&1 && forge upgrade --check || true"`,
 			},
 		},
 	}

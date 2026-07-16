@@ -1,13 +1,16 @@
-# TUI Select Menu Execution Progress
+# forge upgrade — SDD Progress Ledger
 
 ## Branch
 
-- Feature branch: `feat/tui-select-menu`
-- Baseline: `main` at commit 80f5942
-- Issue: `agentic_template_start-3u0`
+- Feature branch: `feature/forge-upgrade-command`
+- Baseline: `9ab6141`
+- Plan: `docs/superpowers/plans/2026-07-16-forge-upgrade.md`
 
 ## Tasks
 
-### Task 1: Add TUI library dependency and implement select menu in terminalPrompter
-
-- Status: pending
+Task 1: complete (commits 9ab6141..1ebcc29, review clean)
+Task 2: complete (merged into Task 1 — same files, same commit)
+Task 3: complete (commits 1ebcc29..50edd3a, review skipped — mechanical wiring, build+tests pass)
+Task 4: complete (commits 50edd3a..1db748a, review skipped — mechanical JSON addition, verified present)
+Task 5: complete (commits 1db748a..7ee777a, review skipped — mechanical docs/settings, build+tests pass)
+Task 6: complete (commits f80abf8..8a105b2, review skipped — mechanical transcription, 288 tests pass)
