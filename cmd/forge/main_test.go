@@ -79,15 +79,29 @@ func TestIsUserAbortWrappedErrorStillDetected(t *testing.T) {
 	}
 }
 
-func TestSelectCommandDefaultsToInit(t *testing.T) {
+func TestSelectCommandDefaultsToHelp(t *testing.T) {
 	t.Parallel()
 
 	command, remaining := selectCommand(nil)
-	if command != "init" {
-		t.Fatalf("command = %q, want init", command)
+	if command != "help" {
+		t.Fatalf("command = %q, want help", command)
 	}
-	if len(remaining) != 0 {
-		t.Fatalf("remaining args = %#v, want none", remaining)
+	if remaining != nil {
+		t.Fatalf("remaining args = %#v, want nil", remaining)
+	}
+}
+
+func TestSelectCommandRecognizesHelpVariants(t *testing.T) {
+	t.Parallel()
+
+	for _, arg := range []string{"help", "--help", "-h"} {
+		command, remaining := selectCommand([]string{arg})
+		if command != "help" {
+			t.Fatalf("selectCommand(%q): command = %q, want help", arg, command)
+		}
+		if remaining != nil {
+			t.Fatalf("selectCommand(%q): remaining = %#v, want nil", arg, remaining)
+		}
 	}
 }
 
