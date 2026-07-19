@@ -33,16 +33,31 @@ func TestPublishRemoteURLRequiresAURL(t *testing.T) {
 	}
 }
 
-func TestPublishRemoteGHReportsPushRetryAdvice(t *testing.T) {
+func TestPublishRemoteGHReportsCreateFailure(t *testing.T) {
 	t.Parallel()
 
-	runner := &recordingRunner{failStep: "git push"}
+	runner := &recordingRunner{failStep: "gh repo create"}
 	err := Publish(context.Background(), runner, t.TempDir(), PublishOptions{Remote: project.RemoteGH, RepoName: "sample-app"})
 	if err == nil {
 		t.Fatal("Publish() error = nil, want error")
 	}
-	if !strings.Contains(err.Error(), "remote created but initial push failed") {
-		t.Fatalf("Publish() error = %v, want push retry guidance", err)
+	if !strings.Contains(err.Error(), "gh repo create failed") {
+		t.Fatalf("Publish() error = %v, want create failure message", err)
+	}
+}
+
+func TestPublishRemoteGHPassesPushFlag(t *testing.T) {
+	t.Parallel()
+
+	runner := &recordingRunner{}
+	err := Publish(context.Background(), runner, t.TempDir(), PublishOptions{Remote: project.RemoteGH, RepoName: "sample-app"})
+	if err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+
+	want := []string{"git add", "git commit", "gh repo create"}
+	if got := runner.stepNames(); !equalStrings(got, want) {
+		t.Fatalf("steps = %#v, want %#v", got, want)
 	}
 }
 
