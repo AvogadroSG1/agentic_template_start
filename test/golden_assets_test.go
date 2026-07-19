@@ -89,18 +89,18 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 			name: "python-cli-typer",
 			files: []string{
 				"templates/golden/python-cli-typer/pyproject.toml.tmpl",
-				"templates/golden/python-cli-typer/src/app/__init__.py",
-				"templates/golden/python-cli-typer/src/app/main.py",
-				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py",
+				"templates/golden/python-cli-typer/src/{{.PythonPackage}}/__init__.py",
+				"templates/golden/python-cli-typer/src/{{.PythonPackage}}/main.py",
+				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py.tmpl",
 			},
 		},
 		{
 			name: "python-fastapi",
 			files: []string{
 				"templates/golden/python-fastapi/pyproject.toml.tmpl",
-				"templates/golden/python-fastapi/app/__init__.py",
-				"templates/golden/python-fastapi/app/main.py",
-				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py",
+				"templates/golden/python-fastapi/{{.PythonPackage}}/__init__.py",
+				"templates/golden/python-fastapi/{{.PythonPackage}}/main.py",
+				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py.tmpl",
 			},
 		},
 		{
@@ -143,12 +143,12 @@ func TestGoldenCatalogPackagesVanillaAndOverlayAssetsForEveryV1Stack(t *testing.
 			name: "python-web-jinja",
 			files: []string{
 				"templates/golden/python-web-jinja/pyproject.toml.tmpl",
-				"templates/golden/python-web-jinja/app/__init__.py",
-				"templates/golden/python-web-jinja/.forge-overlay/app/main.py",
-				"templates/golden/python-web-jinja/.forge-overlay/app/templates/index.html",
-				"templates/golden/python-web-jinja/.forge-overlay/app/static/htmx.min.js",
-				"templates/golden/python-web-jinja/.forge-overlay/tests/test_health.py",
-				"templates/golden/python-web-jinja/.forge-overlay/tests/test_index.py",
+				"templates/golden/python-web-jinja/{{.PythonPackage}}/__init__.py",
+				"templates/golden/python-web-jinja/.forge-overlay/{{.PythonPackage}}/main.py",
+				"templates/golden/python-web-jinja/.forge-overlay/{{.PythonPackage}}/templates/index.html",
+				"templates/golden/python-web-jinja/.forge-overlay/{{.PythonPackage}}/static/htmx.min.js",
+				"templates/golden/python-web-jinja/.forge-overlay/tests/test_health.py.tmpl",
+				"templates/golden/python-web-jinja/.forge-overlay/tests/test_index.py.tmpl",
 			},
 		},
 		{
@@ -339,8 +339,8 @@ func TestCSharpCLIProjectFilesEnableXmlDocumentationAnalysis(t *testing.T) {
 
 func TestPythonCLITyperStarterTestInvokesHelloSubcommand(t *testing.T) {
 	repoRoot := repoRoot(t)
-	mainPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", "src", "app", "main.py")
-	testPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", ".forge-overlay", "tests", "test_cli.py")
+	mainPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", "src", "{{.PythonPackage}}", "main.py")
+	testPath := filepath.Join(repoRoot, "templates", "golden", "python-cli-typer", ".forge-overlay", "tests", "test_cli.py.tmpl")
 
 	mainBytes, err := os.ReadFile(mainPath)
 	if err != nil {

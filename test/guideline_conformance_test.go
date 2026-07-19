@@ -64,7 +64,7 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			files: []string{
 				"templates/golden/python-cli-typer/pyproject.toml.tmpl",
 				"templates/golden/python-cli-typer/.forge-overlay/mise.toml",
-				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py",
+				"templates/golden/python-cli-typer/.forge-overlay/tests/test_cli.py.tmpl",
 			},
 		},
 		{
@@ -73,7 +73,7 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			files: []string{
 				"templates/golden/python-fastapi/pyproject.toml.tmpl",
 				"templates/golden/python-fastapi/.forge-overlay/mise.toml.tmpl",
-				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py",
+				"templates/golden/python-fastapi/.forge-overlay/tests/test_health.py.tmpl",
 			},
 		},
 		{
@@ -113,7 +113,7 @@ func TestShippedV1StacksSatisfyGuidelineFloor(t *testing.T) {
 			files: []string{
 				"templates/golden/python-web-jinja/pyproject.toml.tmpl",
 				"templates/golden/python-web-jinja/.forge-overlay/mise.toml",
-				"templates/golden/python-web-jinja/.forge-overlay/tests/test_health.py",
+				"templates/golden/python-web-jinja/.forge-overlay/tests/test_health.py.tmpl",
 			},
 		},
 		{

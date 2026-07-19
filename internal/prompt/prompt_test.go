@@ -455,3 +455,95 @@ func TestResolveValidatesAPIBaseURL(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveSkipsPythonPackagePromptWhenDerivedNameIsValid(t *testing.T) {
+	t.Parallel()
+
+	prompter := &stubPrompter{responses: map[string]string{
+		"remote": "none",
+	}}
+	resolved, err := Resolve(Inputs{
+		ProjectName: "My Cool API",
+		Language:    "python",
+		ProjectType: "api",
+		Stack:       "python-fastapi",
+		AuthorName:  "Ada",
+		AuthorEmail: "ada@example.com",
+		IsTTY:       true,
+	}, prompter)
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if resolved.PythonPackageOverride != "" {
+		t.Fatalf("PythonPackageOverride = %q, want empty (derived name is valid)", resolved.PythonPackageOverride)
+	}
+	if promptedFor(prompter.calls, "python-package") {
+		t.Fatalf("Resolve() prompts = %#v, should not ask for python-package", prompter.calls)
+	}
+}
+
+func TestResolveRequiresPythonPackageOverrideWithoutATTYWhenDerivedNameIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	_, err := Resolve(Inputs{
+		ProjectName: "3D Printer",
+		Language:    "python",
+		ProjectType: "api",
+		Stack:       "python-fastapi",
+		AuthorName:  "Ada",
+		AuthorEmail: "ada@example.com",
+		Remote:      "none",
+		IsTTY:       false,
+	}, nil)
+	if err == nil || err.Error() != "missing required flag: --python-package" {
+		t.Fatalf("Resolve() error = %v, want missing python-package", err)
+	}
+}
+
+func TestResolvePromptsForPythonPackageOverrideWhenDerivedNameIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	prompter := &stubPrompter{responses: map[string]string{
+		"remote":         "none",
+		"python-package": "printer3d",
+	}}
+	resolved, err := Resolve(Inputs{
+		ProjectName: "3D Printer",
+		Language:    "python",
+		ProjectType: "api",
+		Stack:       "python-fastapi",
+		AuthorName:  "Ada",
+		AuthorEmail: "ada@example.com",
+		IsTTY:       true,
+	}, prompter)
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if resolved.PythonPackageOverride != "printer3d" {
+		t.Fatalf("PythonPackageOverride = %q, want %q", resolved.PythonPackageOverride, "printer3d")
+	}
+	if !promptedFor(prompter.calls, "python-package") {
+		t.Fatalf("Resolve() prompts = %#v, want python-package prompt", prompter.calls)
+	}
+}
+
+func TestResolveRejectsAnInvalidPythonPackageOverride(t *testing.T) {
+	t.Parallel()
+
+	prompter := &stubPrompter{responses: map[string]string{
+		"remote":         "none",
+		"python-package": "3d-printer",
+	}}
+	_, err := Resolve(Inputs{
+		ProjectName: "3D Printer",
+		Language:    "python",
+		ProjectType: "api",
+		Stack:       "python-fastapi",
+		AuthorName:  "Ada",
+		AuthorEmail: "ada@example.com",
+		IsTTY:       true,
+	}, prompter)
+	if err == nil || !strings.Contains(err.Error(), "python package override") {
+		t.Fatalf("Resolve() error = %v, want invalid python package override error", err)
+	}
+}

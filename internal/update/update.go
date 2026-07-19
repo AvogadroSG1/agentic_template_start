@@ -332,6 +332,7 @@ func snapshotVanilla(workspaceDir string, targetDir string, committedStackDir st
 		}
 
 		committedRelPath := filepath.ToSlash(relPath)
+		committedRelPath = applyTemplatePlaceholdersToPath(committedRelPath, vars)
 		if d.IsDir() {
 			writtenDirs[committedRelPath] = struct{}{}
 			return os.MkdirAll(filepath.Join(targetDir, filepath.FromSlash(committedRelPath)), 0o755)
@@ -537,6 +538,27 @@ func applyTemplatePlaceholders(data []byte, vars project.Variables) []byte {
 		templated = bytes.ReplaceAll(templated, []byte(candidate.value), []byte(candidate.placeholder))
 	}
 	return templated
+}
+
+func applyTemplatePlaceholdersToPath(relPath string, vars project.Variables) string {
+	type replacement struct {
+		value       string
+		placeholder string
+	}
+	replacements := []replacement{
+		{value: vars.PythonPackage, placeholder: "{{.PythonPackage}}"},
+		{value: vars.CSharpNamespace, placeholder: "{{.CSharpNamespace}}"},
+	}
+	segments := strings.Split(relPath, "/")
+	for i, seg := range segments {
+		for _, r := range replacements {
+			if r.value != "" && seg == r.value {
+				segments[i] = r.placeholder
+				break
+			}
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 func checkOverlaySeam(committedStackDir string, refreshedVanilla string) (seamCheckReport, error) {

@@ -2,6 +2,35 @@ package project
 
 import "testing"
 
+func TestValidatePythonPackage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "valid underscore separated", input: "my_cool_api", wantErr: false},
+		{name: "valid single word", input: "app", wantErr: false},
+		{name: "valid leading underscore", input: "_private_pkg", wantErr: false},
+		{name: "invalid starts with digit", input: "3d_printer", wantErr: true},
+		{name: "invalid empty", input: "", wantErr: true},
+		{name: "invalid uppercase", input: "MyPackage", wantErr: true},
+		{name: "invalid hyphen", input: "my-package", wantErr: true},
+		{name: "invalid dot", input: "my.package", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidatePythonPackage(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidatePythonPackage(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestResolveVariablesDerivesCanonicalNames(t *testing.T) {
 	vars, err := ResolveVariables(Input{
 		ProjectName: "My Cool API",
@@ -146,5 +175,26 @@ func TestResolveVariablesDerivesFrontendWiring(t *testing.T) {
 				t.Fatalf("NpmPackage = %q, want %q", vars.NpmPackage, "my-cool-app")
 			}
 		})
+	}
+}
+
+func TestResolveVariablesAppliesPythonPackageOverride(t *testing.T) {
+	t.Parallel()
+
+	vars, err := ResolveVariables(Input{
+		ProjectName:           "StackOverflow.CostInvestigator",
+		Language:              "python",
+		ProjectType:           "service",
+		Stack:                 "python-fastapi",
+		AuthorName:            "Ada Lovelace",
+		AuthorEmail:           "ada@example.com",
+		Remote:                RemoteNone,
+		PythonPackageOverride: "cost_investigator",
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+	if vars.PythonPackage != "cost_investigator" {
+		t.Fatalf("PythonPackage = %q, want %q", vars.PythonPackage, "cost_investigator")
 	}
 }

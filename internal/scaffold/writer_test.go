@@ -129,6 +129,69 @@ func TestWriterRendersPythonPackageFromEmbeddedTemplates(t *testing.T) {
 	if _, statErr := os.Stat(manifestPath); !os.IsNotExist(statErr) {
 		t.Fatalf("skill-manifest.json stat error = %v, want not exists (seed skills are rendered in memory, not scaffolded)", statErr)
 	}
+
+	// Verify package directory is rendered (not literal app/ or {{.PythonPackage}}/)
+	pkgDir := filepath.Join(tempDir, "src", "my_cool_api")
+	if _, err := os.Stat(pkgDir); err != nil {
+		t.Fatalf("expected rendered package dir %q to exist: %v", pkgDir, err)
+	}
+	initFile := filepath.Join(pkgDir, "__init__.py")
+	if _, err := os.Stat(initFile); err != nil {
+		t.Fatalf("expected %q to exist: %v", initFile, err)
+	}
+
+	// Verify literal app/ does NOT exist
+	literalApp := filepath.Join(tempDir, "src", "app")
+	if _, err := os.Stat(literalApp); err == nil {
+		t.Fatal("literal src/app/ directory should not exist after rendering")
+	}
+
+	// Verify literal template expression does NOT exist in output
+	templateLiteral := filepath.Join(tempDir, "src", "{{.PythonPackage}}")
+	if _, err := os.Stat(templateLiteral); err == nil {
+		t.Fatal("literal {{.PythonPackage}} directory should not exist in output")
+	}
+}
+
+func TestWriterRendersPythonFastAPIPackageDirectory(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Cost Investigator",
+		Language:    "python",
+		ProjectType: "service",
+		Stack:       "python-fastapi",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	writer := Writer{Assets: forge.Assets()}
+	if err := writer.Write(tempDir, vars); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	// Package directory uses derived name
+	pkgDir := filepath.Join(tempDir, "cost_investigator")
+	if _, err := os.Stat(pkgDir); err != nil {
+		t.Fatalf("expected package dir %q: %v", pkgDir, err)
+	}
+	assertFileContains(t, filepath.Join(pkgDir, "__init__.py"), "")
+
+	// No literal app/ directory
+	if _, err := os.Stat(filepath.Join(tempDir, "app")); err == nil {
+		t.Fatal("literal app/ should not exist")
+	}
+
+	// pyproject.toml references the package name
+	assertFileContains(t, filepath.Join(tempDir, "pyproject.toml"), `packages = ["cost_investigator"]`)
+
+	// test file has correct import
+	assertFileContains(t, filepath.Join(tempDir, "tests", "test_health.py"), "from cost_investigator.main import app")
 }
 
 func TestWriterRendersCSharpNamespaceIntoProjectFile(t *testing.T) {
@@ -359,4 +422,57 @@ func TestWriterRendersStandaloneTypescriptStackWithNodeGitignore(t *testing.T) {
 	assertFileContains(t, filepath.Join(tempDir, "src", "api", "client.ts"), "https://api.example.com")
 	assertFileContains(t, filepath.Join(tempDir, "mise.toml"), "node = \"24\"")
 	assertFileContains(t, filepath.Join(tempDir, ".gitignore"), "# ===== node gitignore =====")
+}
+
+func TestRenderPathExpandsTemplateExpressions(t *testing.T) {
+	t.Parallel()
+
+	vars := project.Variables{PythonPackage: "my_cool_api"}
+
+	got, err := renderPath("{{.PythonPackage}}/__init__.py", vars)
+	if err != nil {
+		t.Fatalf("renderPath() error = %v", err)
+	}
+	if got != "my_cool_api/__init__.py" {
+		t.Fatalf("renderPath() = %q, want %q", got, "my_cool_api/__init__.py")
+	}
+}
+
+func TestRenderPathPassesThroughPlainPaths(t *testing.T) {
+	t.Parallel()
+
+	vars := project.Variables{PythonPackage: "my_cool_api"}
+
+	got, err := renderPath("claude/settings.json", vars)
+	if err != nil {
+		t.Fatalf("renderPath() error = %v", err)
+	}
+	if got != "claude/settings.json" {
+		t.Fatalf("renderPath() = %q, want %q", got, "claude/settings.json")
+	}
+}
+
+func TestRenderPathRejectsTraversalAttempts(t *testing.T) {
+	t.Parallel()
+
+	vars := project.Variables{PythonPackage: ".."}
+
+	_, err := renderPath("{{.PythonPackage}}/main.py", vars)
+	if err == nil {
+		t.Fatal("renderPath() expected error for traversal, got nil")
+	}
+}
+
+func TestRenderPathAllowsDoubleDotWithinSegment(t *testing.T) {
+	t.Parallel()
+
+	vars := project.Variables{CSharpNamespace: "My..Ns"}
+
+	got, err := renderPath("{{.CSharpNamespace}}/Program.cs", vars)
+	if err != nil {
+		t.Fatalf("renderPath() unexpected error = %v", err)
+	}
+	if got != "My..Ns/Program.cs" {
+		t.Fatalf("renderPath() = %q, want %q", got, "My..Ns/Program.cs")
+	}
 }
