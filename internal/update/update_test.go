@@ -14,6 +14,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"forge/internal/project"
 )
 
 type commandCall struct {
@@ -1054,4 +1056,56 @@ func withWorkingDir(t *testing.T, dir string, run func()) {
 	}()
 
 	run()
+}
+
+func TestApplyTemplatePlaceholdersToPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		vars project.Variables
+		want string
+	}{
+		{
+			name: "replaces python package segment",
+			path: "my_cool_api/__init__.py",
+			vars: project.Variables{PythonPackage: "my_cool_api"},
+			want: "{{.PythonPackage}}/__init__.py",
+		},
+		{
+			name: "replaces nested python package segment",
+			path: "src/my_cool_api/main.py",
+			vars: project.Variables{PythonPackage: "my_cool_api"},
+			want: "src/{{.PythonPackage}}/main.py",
+		},
+		{
+			name: "replaces csharp namespace segment",
+			path: "MyCoolApi/Program.cs",
+			vars: project.Variables{CSharpNamespace: "MyCoolApi"},
+			want: "{{.CSharpNamespace}}/Program.cs",
+		},
+		{
+			name: "does not replace substring matches",
+			path: "my_cool_api_extra/main.py",
+			vars: project.Variables{PythonPackage: "my_cool_api"},
+			want: "my_cool_api_extra/main.py",
+		},
+		{
+			name: "leaves non-matching paths unchanged",
+			path: "tests/test_health.py",
+			vars: project.Variables{PythonPackage: "my_cool_api"},
+			want: "tests/test_health.py",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := applyTemplatePlaceholdersToPath(tt.path, tt.vars)
+			if got != tt.want {
+				t.Errorf("applyTemplatePlaceholdersToPath(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
 }

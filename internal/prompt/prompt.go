@@ -3,6 +3,7 @@ package prompt
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"forge/internal/catalog"
@@ -28,6 +29,8 @@ type Inputs struct {
 	ModulePath  string
 	BdPrefix    string
 	IsTTY       bool
+
+	PythonPackageOverride string
 }
 
 func Resolve(input Inputs, prompter Prompter) (project.Input, error) {
@@ -128,12 +131,41 @@ func Resolve(input Inputs, prompter Prompter) (project.Input, error) {
 		RemoteURL:   strings.TrimSpace(input.RemoteURL),
 		ModulePath:  strings.TrimSpace(input.ModulePath),
 		BdPrefix:    strings.TrimSpace(input.BdPrefix),
+
+		PythonPackageOverride: strings.TrimSpace(input.PythonPackageOverride),
 	}
 	if resolved.Remote == project.RemoteURL && resolved.RemoteURL == "" {
 		return project.Input{}, fmt.Errorf("missing required flag: --remote-url")
 	}
 
+	if language == "python" {
+		pythonPkg := derivedPythonPackage(projectName)
+		if err := project.ValidatePythonPackage(pythonPkg); err != nil {
+			override, promptErr := resolveValue(input.PythonPackageOverride, input.IsTTY, prompter, "python-package", "Python package name (derived name is invalid)", nil, "")
+			if promptErr != nil {
+				return project.Input{}, promptErr
+			}
+			if err := project.ValidatePythonPackage(override); err != nil {
+				return project.Input{}, fmt.Errorf("python package override %q: %w", override, err)
+			}
+			resolved.PythonPackageOverride = override
+		}
+	}
+
 	return resolved, nil
+}
+
+// nonAlphaNum matches runs of characters outside [a-z0-9], used to slugify
+// project names into python package names. Compiled once at package init
+// rather than on every derivedPythonPackage call.
+var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
+
+// derivedPythonPackage mirrors the slugification ResolveVariables performs
+// when no override is supplied, so Resolve can validate the name that would
+// actually be used before it reaches ResolveVariables.
+func derivedPythonPackage(projectName string) string {
+	words := strings.Fields(nonAlphaNum.ReplaceAllString(strings.ToLower(projectName), " "))
+	return strings.Join(words, "_")
 }
 
 // resolveFrontend asks the frontend question only when a fullstack project

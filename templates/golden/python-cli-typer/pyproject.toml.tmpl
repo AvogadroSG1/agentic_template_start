@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app"]
+packages = ["src/{{.PythonPackage}}"]
 
 [project.scripts]
-app = "app.main:main"
+{{.PythonPackage}} = "{{.PythonPackage}}.main:main"

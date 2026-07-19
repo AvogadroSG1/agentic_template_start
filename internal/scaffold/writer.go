@@ -135,7 +135,11 @@ func (w Writer) copyTree(root string, targetDir string, destPrefix string, vars 
 			return nil
 		}
 
-		targetPath := filepath.Join(targetDir, destPrefix, mapOutputPath(path))
+		renderedPath, err := renderPath(path, vars)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(targetDir, destPrefix, mapOutputPath(renderedPath))
 		if d.IsDir() {
 			return os.MkdirAll(targetPath, 0o755)
 		}
@@ -176,6 +180,27 @@ func mapOutputPath(path string) string {
 	default:
 		return path
 	}
+}
+
+func renderPath(path string, vars project.Variables) (string, error) {
+	if !strings.Contains(path, "{{") {
+		return path, nil
+	}
+	tmpl, err := template.New("path:" + path).Option("missingkey=error").Parse(path)
+	if err != nil {
+		return "", fmt.Errorf("template path %q: parse: %w", path, err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, vars); err != nil {
+		return "", fmt.Errorf("template path %q: render: %w", path, err)
+	}
+	rendered := buf.String()
+	for _, seg := range strings.Split(rendered, "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("template path %q: rendered to unsafe value %q", path, rendered)
+		}
+	}
+	return rendered, nil
 }
 
 func renderTemplate(name string, data []byte, vars project.Variables) ([]byte, error) {

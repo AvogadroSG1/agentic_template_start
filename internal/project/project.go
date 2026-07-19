@@ -29,6 +29,8 @@ type Input struct {
 	RemoteURL   string
 	ModulePath  string
 	BdPrefix    string
+
+	PythonPackageOverride string
 }
 
 type Variables struct {
@@ -65,6 +67,18 @@ var backendPorts = map[string]string{
 }
 
 var nonAlphaNumeric = regexp.MustCompile(`[^a-z0-9]+`)
+
+var validPythonIdentifier = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+func ValidatePythonPackage(name string) error {
+	if name == "" {
+		return fmt.Errorf("python package name is empty")
+	}
+	if !validPythonIdentifier.MatchString(name) {
+		return fmt.Errorf("python package name %q is not a valid Python identifier (must match [a-z_][a-z0-9_]*)", name)
+	}
+	return nil
+}
 
 func ResolveVariables(input Input) (Variables, error) {
 	projectName := strings.TrimSpace(input.ProjectName)
@@ -126,11 +140,18 @@ func ResolveVariables(input Input) (Variables, error) {
 		BdPrefix:        bdPrefix,
 		ModulePath:      modulePath,
 		GoModule:        modulePath,
-		PythonPackage:   strings.Join(slugWords, "_"),
+		PythonPackage:   derivePythonPackage(slugWords, input.PythonPackageOverride),
 		CSharpNamespace: pascalCase(slugWords),
 		RepoSlug:        slugKebab(slugWords),
 		IncludePersonal: false,
 	}, nil
+}
+
+func derivePythonPackage(slugWords []string, override string) string {
+	if trimmed := strings.TrimSpace(override); trimmed != "" {
+		return trimmed
+	}
+	return strings.Join(slugWords, "_")
 }
 
 func slugWords(value string) []string {
