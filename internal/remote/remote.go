@@ -38,11 +38,8 @@ func Publish(ctx context.Context, runner delegate.Runner, dir string, options Pu
 		if strings.TrimSpace(options.RepoName) == "" {
 			return fmt.Errorf("repository name is required for --remote gh")
 		}
-		if err := runner.Run(ctx, dir, "gh repo create", "gh", "repo", "create", options.RepoName, "--source=.", "--remote=origin", "--private"); err != nil {
-			return fmt.Errorf("remote created failure: %w", err)
-		}
-		if err := runner.Run(ctx, dir, "git push", "git", "push", "-u", "origin", "main"); err != nil {
-			return fmt.Errorf("remote created but initial push failed; retry with git push -u origin main: %w", err)
+		if err := runner.Run(ctx, dir, "gh repo create", "gh", "repo", "create", options.RepoName, "--source=.", "--remote=origin", "--private", "--push"); err != nil {
+			return fmt.Errorf("gh repo create failed: %w", err)
 		}
 		return nil
 	default:
