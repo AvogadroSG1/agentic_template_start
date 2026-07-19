@@ -42,6 +42,9 @@ func run(args []string, assets fs.FS) error {
 
 	var err error
 	switch command {
+	case "help":
+		printUsage()
+		return nil
 	case "init":
 		err = runInit(args, assets)
 	case "sync-allowlist":
@@ -51,7 +54,8 @@ func run(args []string, assets fs.FS) error {
 	case "upgrade":
 		err = runUpgrade(args, assets)
 	default:
-		return fmt.Errorf("unsupported command %q", command)
+		printUsage()
+		return fmt.Errorf("unknown command %q", command)
 	}
 
 	if isUserAbort(err) {
@@ -62,15 +66,37 @@ func run(args []string, assets fs.FS) error {
 }
 
 func selectCommand(args []string) (string, []string) {
-	command := "init"
-	if len(args) > 0 {
-		switch args[0] {
-		case "init", "sync-allowlist", "update", "upgrade":
-			return args[0], args[1:]
-		}
+	if len(args) == 0 {
+		return "help", nil
 	}
 
-	return command, args
+	switch args[0] {
+	case "init", "sync-allowlist", "update", "upgrade":
+		return args[0], args[1:]
+	case "help", "--help", "-h":
+		return "help", nil
+	}
+
+	return args[0], args[1:]
+}
+
+func printUsage() {
+	fmt.Print(`Scaffold AI-native repositories
+
+Usage:
+  forge [command]
+
+Available Commands:
+  init            Create a new project
+  sync-allowlist  Reconcile managed allowlist block
+  update          Refresh a vendored stack snapshot
+  upgrade         Propagate infrastructure file updates
+
+Flags:
+  -h, --help   help for forge
+
+Use "forge [command] --help" for more information about a command.
+`)
 }
 
 func runInit(args []string, assets fs.FS) error {
