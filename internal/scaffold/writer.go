@@ -177,6 +177,8 @@ func mapOutputPath(path string) string {
 		return filepath.Join(".claude", strings.TrimPrefix(path, "claude/"))
 	case strings.HasPrefix(path, "codex/"):
 		return filepath.Join(".codex", strings.TrimPrefix(path, "codex/"))
+	case strings.HasPrefix(path, "opencode/"):
+		return filepath.Join(".opencode", strings.TrimPrefix(path, "opencode/"))
 	default:
 		return path
 	}

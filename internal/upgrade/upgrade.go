@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const Version = 1
+const Version = 2
 
 const versionFile = ".forge-infra-version"
 
@@ -26,6 +26,8 @@ var managedFiles = []managedFile{
 	{src: "templates/common/claude/hooks/secret-scan.sh", dest: ".claude/hooks/secret-scan.sh", mode: 0o755},
 	{src: "templates/common/claude/settings.json", dest: ".claude/settings.json", mode: 0o644},
 	{src: "templates/common/codex/hooks.json", dest: ".codex/hooks.json", mode: 0o644},
+	{src: "templates/common/opencode.json.tmpl", dest: "opencode.json", mode: 0o644},
+	{src: "templates/common/opencode/plugins/forge-hooks.js", dest: ".opencode/plugins/forge-hooks.js", mode: 0o644},
 }
 
 type Status struct {
@@ -83,6 +85,7 @@ func validateForgeRepo(targetDir string) error {
 		filepath.Join(targetDir, ".claude", "hooks", "guard"),
 		filepath.Join(targetDir, ".forge-infra-version"),
 		filepath.Join(targetDir, ".claude", "settings.json"),
+		filepath.Join(targetDir, ".opencode", "plugins", "forge-hooks.js"),
 	}
 	for _, marker := range markers {
 		if _, err := os.Stat(marker); err == nil {

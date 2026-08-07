@@ -179,18 +179,35 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 		return err
 	}
 
-	status, err := allowlist.Sync(settingsPath, block, checkOnly)
+	claudeStatus, err := allowlist.Sync(settingsPath, block, checkOnly)
 	if err != nil {
 		return err
 	}
+
+	opencodePath := filepath.Join(cwd, "opencode.json")
+	var opencodeStale bool
+	if opencodeData, opencodeErr := os.ReadFile(opencodePath); opencodeErr == nil {
+		opencodeLang, opencodeLangErr := allowlist.InferLanguage(string(opencodeData))
+		if opencodeLangErr != nil {
+			opencodeLang = language
+		}
+		opencodeBlock, opencodeBlockErr := allowlist.CanonicalBlockOpenCode(assets, opencodeLang, allowlist.InferFrontend(string(opencodeData)), includePersonal)
+		if opencodeBlockErr == nil {
+			ocStatus, ocErr := allowlist.Sync(opencodePath, opencodeBlock, checkOnly)
+			if ocErr == nil {
+				opencodeStale = ocStatus.Stale
+			}
+		}
+	}
+
 	if checkOnly {
-		if status.Stale {
-			fmt.Printf("allowlist is %d version(s) behind; run forge sync-allowlist\n", status.Embedded-status.CurrentVersion)
+		if claudeStatus.Stale || opencodeStale {
+			fmt.Printf("allowlist is %d version(s) behind; run forge sync-allowlist\n", claudeStatus.Embedded-claudeStatus.CurrentVersion)
 		}
 		return nil
 	}
 
-	fmt.Printf("allowlist synced to version %d\n", status.CurrentVersion)
+	fmt.Printf("allowlist synced to version %d\n", claudeStatus.CurrentVersion)
 	return nil
 }
 

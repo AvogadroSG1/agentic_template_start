@@ -166,6 +166,38 @@ func CanonicalBlock(assets fs.FS, language string, frontend bool, includePersona
 	return extractManagedBlock(rendered.String())
 }
 
+func CanonicalBlockOpenCode(assets fs.FS, language string, frontend bool, includePersonal bool) (string, error) {
+	data, err := fs.ReadFile(assets, "templates/common/opencode.json.tmpl")
+	if err != nil {
+		return "", err
+	}
+
+	tmpl, err := template.New("opencode.json.tmpl").Option("missingkey=error").Parse(string(data))
+	if err != nil {
+		return "", err
+	}
+
+	frontendMarker := ""
+	if frontend {
+		frontendMarker = "frontend"
+	}
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, struct {
+		Language        string
+		Frontend        string
+		IncludePersonal bool
+	}{
+		Language:        strings.TrimSpace(language),
+		Frontend:        frontendMarker,
+		IncludePersonal: includePersonal,
+	}); err != nil {
+		return "", err
+	}
+
+	return extractManagedBlock(rendered.String())
+}
+
 func extractManagedBlock(contents string) (string, error) {
 	start := strings.Index(contents, beginMarker)
 	end := strings.Index(contents, endMarker)
