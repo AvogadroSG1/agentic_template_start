@@ -116,6 +116,7 @@ func runInit(args []string, assets fs.FS) error {
 	flags.StringVar(&inputs.RemoteURL, "remote-url", "", "Remote URL when --remote url is selected")
 	flags.StringVar(&inputs.ModulePath, "module-path", "", "Module path override")
 	flags.StringVar(&inputs.BdPrefix, "bd-prefix", "", "Beads prefix override")
+	flags.StringVar(&inputs.PythonPackageOverride, "python-package", "", "Python package name override (Python stacks only)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
