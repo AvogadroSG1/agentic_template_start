@@ -19,6 +19,7 @@ bin/
 /forge
 /mkproj
 
+.superpowers/
 
 # APM dependencies
 apm_modules/
