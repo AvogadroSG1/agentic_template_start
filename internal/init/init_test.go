@@ -70,7 +70,7 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 		t.Fatalf("step order = %#v, want %#v", got, want)
 	}
 
-	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang-cli,mise")
+	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang-cli,mise", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "mise trust", "trust", "--all")
 }
 
@@ -167,7 +167,7 @@ func TestInitializerPassesSeedSkillsToInstillInit(t *testing.T) {
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init",
-		"init", "--force", "--skills", "golang-cli,mise,brainstorming")
+		"init", "--force", "--skills", "golang-cli,mise,brainstorming", "--targets", "claude,codex,opencode")
 }
 
 func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testing.T) {
@@ -183,7 +183,7 @@ func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testi
 			switch {
 			case step == "instill init":
 				return errors.New("combined init failed")
-			case lastArg(args) == "writing-rules":
+			case skillArg(args) == "writing-rules":
 				return errors.New("permission denied")
 			default:
 				return nil
@@ -221,15 +221,15 @@ func TestInitializerFallsBackToPerSkillInstillInitWhenCombinedInitFails(t *testi
 	}
 
 	assertRecordedStepArgs(t, runner.steps, "instill init",
-		"init", "--force", "--skills", "golang-cli,writing-rules,mise")
+		"init", "--force", "--skills", "golang-cli,writing-rules,mise", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "instill init (golang-cli)",
-		"init", "--force", "--skills", "golang-cli")
+		"init", "--force", "--skills", "golang-cli", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "instill init (writing-rules)",
-		"init", "--force", "--skills", "writing-rules")
+		"init", "--force", "--skills", "writing-rules", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "instill init (mise)",
-		"init", "--force", "--skills", "mise")
+		"init", "--force", "--skills", "mise", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "instill init (retry)",
-		"init", "--force", "--skills", "golang-cli,mise")
+		"init", "--force", "--skills", "golang-cli,mise", "--targets", "claude,codex,opencode")
 
 	if !hasStep(runner.steps, "instill sync") {
 		t.Fatalf("instill sync should run after successful fallback init: %#v", runner.stepNames())
@@ -342,7 +342,7 @@ func TestReadSeedSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSeedSkills(go) error = %v", err)
 	}
-	for _, want := range []string{"golang-cli", "mise", "brainstorming"} {
+	for _, want := range []string{"golang/golang-cli", "productivity/mise", "superpowers/brainstorming"} {
 		if !slices.Contains(goSkills, want) {
 			t.Fatalf("go seed skills = %#v, want to contain %q", goSkills, want)
 		}
@@ -352,11 +352,14 @@ func TestReadSeedSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSeedSkills(python) error = %v", err)
 	}
-	if slices.Contains(pythonSkills, "golang-cli") {
+	if slices.Contains(pythonSkills, "golang/golang-cli") {
 		t.Fatalf("python seed skills = %#v, want no golang-cli", pythonSkills)
 	}
-	if !slices.Contains(pythonSkills, "mise") {
+	if !slices.Contains(pythonSkills, "productivity/mise") {
 		t.Fatalf("python seed skills = %#v, want to contain mise", pythonSkills)
+	}
+	if !slices.Contains(pythonSkills, "python/python-code-style") {
+		t.Fatalf("python seed skills = %#v, want to contain python-code-style", pythonSkills)
 	}
 }
 
@@ -598,6 +601,15 @@ func lastArg(args []string) string {
 	}
 
 	return args[len(args)-1]
+}
+
+func skillArg(args []string) string {
+	for i, arg := range args {
+		if arg == "--skills" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
 }
 
 func TestInitializerRunsNpmInstallForTypescriptProjects(t *testing.T) {

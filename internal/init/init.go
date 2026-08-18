@@ -152,7 +152,7 @@ func readSeedSkills(assets fs.FS, language string) ([]string, error) {
 }
 
 func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir string, skills []string) ([]string, error) {
-	if err := runner.Run(ctx, targetDir, "instill init", "instill", "init", "--force", "--skills", strings.Join(skills, ",")); err == nil {
+	if err := runner.Run(ctx, targetDir, "instill init", "instill", "init", "--force", "--skills", strings.Join(skills, ","), "--targets", "claude,codex,opencode"); err == nil {
 		return skills, nil
 	} else if len(skills) == 1 {
 		return nil, err
@@ -164,7 +164,7 @@ func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir strin
 	initialized := make([]string, 0, len(skills))
 	for _, skill := range skills {
 		stepName := fmt.Sprintf("instill init (%s)", skill)
-		if skillErr := runner.Run(ctx, targetDir, stepName, "instill", "init", "--force", "--skills", skill); skillErr != nil {
+		if skillErr := runner.Run(ctx, targetDir, stepName, "instill", "init", "--force", "--skills", skill, "--targets", "claude,codex,opencode"); skillErr != nil {
 			continue
 		}
 		initialized = append(initialized, skill)
@@ -173,7 +173,7 @@ func runInstillInit(ctx context.Context, runner delegate.Runner, targetDir strin
 		return nil, nil
 	}
 
-	if err := runner.Run(ctx, targetDir, "instill init (retry)", "instill", "init", "--force", "--skills", strings.Join(initialized, ",")); err != nil {
+	if err := runner.Run(ctx, targetDir, "instill init (retry)", "instill", "init", "--force", "--skills", strings.Join(initialized, ","), "--targets", "claude,codex,opencode"); err != nil {
 		return nil, err
 	}
 
