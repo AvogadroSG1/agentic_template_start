@@ -224,6 +224,72 @@ func TestRunSyncAllowlistRejectsConflictingManagedBlockLanguageMarkers(t *testin
 	}
 }
 
+func TestRunSyncAllowlistUpdatesOpenCodeJsonc(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Chdir(tempDir)
+
+	settingsPath := filepath.Join(tempDir, ".claude", "settings.local.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	settingsOriginal := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END FORGE ALLOW\"\n    ]\n  }\n}\n"
+	if err := os.WriteFile(settingsPath, []byte(settingsOriginal), 0o644); err != nil {
+		t.Fatalf("WriteFile(settings) error = %v", err)
+	}
+
+	opencodeOriginal := "{\n  \"permission\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"go:*\",\n      \"// END FORGE ALLOW\"\n    ]\n  }\n}\n"
+	opencodePath := filepath.Join(tempDir, "opencode.jsonc")
+	if err := os.WriteFile(opencodePath, []byte(opencodeOriginal), 0o644); err != nil {
+		t.Fatalf("WriteFile(opencode) error = %v", err)
+	}
+
+	if err := runSyncAllowlist([]string{"--path", settingsPath}, forge.Assets()); err != nil {
+		t.Fatalf("runSyncAllowlist() error = %v", err)
+	}
+
+	data, err := os.ReadFile(opencodePath)
+	if err != nil {
+		t.Fatalf("ReadFile(opencode.jsonc) error = %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"go*": "allow"`) || !strings.Contains(content, `"git status*": "allow"`) {
+		t.Fatalf("expected updated rules in opencode.jsonc, got:\n%s", content)
+	}
+}
+
+func TestRunSyncAllowlistFallsBackToOpenCodeJson(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Chdir(tempDir)
+
+	settingsPath := filepath.Join(tempDir, ".claude", "settings.local.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	settingsOriginal := "{\n  \"permissions\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"Bash(go:*)\",\n      \"// END FORGE ALLOW\"\n    ]\n  }\n}\n"
+	if err := os.WriteFile(settingsPath, []byte(settingsOriginal), 0o644); err != nil {
+		t.Fatalf("WriteFile(settings) error = %v", err)
+	}
+
+	opencodeOriginal := "{\n  \"permission\": {\n    \"allow\": [\n      \"// BEGIN FORGE ALLOW v:0\",\n      \"go:*\",\n      \"// END FORGE ALLOW\"\n    ]\n  }\n}\n"
+	opencodePath := filepath.Join(tempDir, "opencode.json")
+	if err := os.WriteFile(opencodePath, []byte(opencodeOriginal), 0o644); err != nil {
+		t.Fatalf("WriteFile(opencode) error = %v", err)
+	}
+
+	if err := runSyncAllowlist([]string{"--path", settingsPath}, forge.Assets()); err != nil {
+		t.Fatalf("runSyncAllowlist() error = %v", err)
+	}
+
+	data, err := os.ReadFile(opencodePath)
+	if err != nil {
+		t.Fatalf("ReadFile(opencode.json) error = %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `"go*": "allow"`) || !strings.Contains(content, `"git status*": "allow"`) {
+		t.Fatalf("expected updated rules in opencode.json, got:\n%s", content)
+	}
+}
+
 func TestSelectCommandRecognizesUpdate(t *testing.T) {
 	t.Parallel()
 

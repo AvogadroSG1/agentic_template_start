@@ -185,7 +185,10 @@ func runSyncAllowlist(args []string, assets fs.FS) error {
 		return err
 	}
 
-	opencodePath := filepath.Join(cwd, "opencode.json")
+	opencodePath := filepath.Join(cwd, "opencode.jsonc")
+	if _, err := os.Stat(opencodePath); os.IsNotExist(err) {
+		opencodePath = filepath.Join(cwd, "opencode.json")
+	}
 	var opencodeStale bool
 	if opencodeData, opencodeErr := os.ReadFile(opencodePath); opencodeErr == nil {
 		opencodeLang, opencodeLangErr := allowlist.InferLanguage(string(opencodeData))
