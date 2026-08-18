@@ -167,12 +167,12 @@ func CanonicalBlock(assets fs.FS, language string, frontend bool, includePersona
 }
 
 func CanonicalBlockOpenCode(assets fs.FS, language string, frontend bool, includePersonal bool) (string, error) {
-	data, err := fs.ReadFile(assets, "templates/common/opencode.json.tmpl")
+	data, err := fs.ReadFile(assets, "templates/common/opencode.jsonc.tmpl")
 	if err != nil {
 		return "", err
 	}
 
-	tmpl, err := template.New("opencode.json.tmpl").Option("missingkey=error").Parse(string(data))
+	tmpl, err := template.New("opencode.jsonc.tmpl").Option("missingkey=error").Parse(string(data))
 	if err != nil {
 		return "", err
 	}

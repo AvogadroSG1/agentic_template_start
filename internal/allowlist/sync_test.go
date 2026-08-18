@@ -146,3 +146,16 @@ func TestCanonicalBlockKeepsPersonalRulesOptIn(t *testing.T) {
 		}
 	}
 }
+
+func TestCanonicalBlockOpenCodeRendersFromJSONCTemplate(t *testing.T) {
+	t.Parallel()
+
+	block, err := CanonicalBlockOpenCode(forge.Assets(), "go", false, false)
+	if err != nil {
+		t.Fatalf("CanonicalBlockOpenCode() error = %v", err)
+	}
+	if !strings.Contains(block, `"go*": "allow"`) {
+		t.Fatalf("CanonicalBlockOpenCode() missing go rule in:\n%s", block)
+	}
+}
+

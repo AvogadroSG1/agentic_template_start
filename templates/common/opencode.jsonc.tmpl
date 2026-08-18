@@ -1,17 +1,12 @@
 {
+  // OpenCode Configuration (https://opencode.ai)
   "$schema": "https://opencode.ai/config.json",
-  "lsp": {
-{{- if eq .Language "go" }}
-    "gopls": true
-{{- else if eq .Language "python" }}
-    "pyright": true
-{{- else if eq .Language "csharp" }}
-    "csharp": true
-{{- else if eq .Language "typescript" }}
-    "typescript": true
-{{- end }}
-  },
+
+  // Enable default Language Server Protocol support
+  "lsp": true,
+
   "permission": {
+    // Read permissions: allow all repository files except sensitive secrets
     "read": {
       "*": "allow",
       "// BEGIN FORGE ALLOW v:2",
@@ -33,11 +28,15 @@
       "~/.npmrc": "deny",
       "~/.pypirc": "deny"
     },
+
+    // Edit permissions: allow general file editing while protecting git and opencode internals
     "edit": {
       "*": "allow",
       ".git/**": "deny",
       ".opencode/**": "deny"
     },
+
+    // Bash permissions: vetted commands for git, build, test, and package tools
     "bash": {
       "*": "ask",
       "git status*": "allow",
@@ -155,6 +154,8 @@
 {{- end }}
       "// END FORGE ALLOW"
     },
+
+    // Built-in tools allowed unconditionally
     "glob": "allow",
     "grep": "allow",
     "webfetch": "allow",
