@@ -120,3 +120,13 @@ dropped at composition.
 The port a backend stack's walking skeleton listens on (chi 8080, uvicorn 8000, Kestrel
 5000). Drives the derived `APIBaseURL` a fullstack frontend's API client targets by
 default; overridable at runtime via `VITE_API_BASE_URL` or the Angular environment file.
+
+### Personalization profile
+The developer's machine-level customizations (workspace references, personal agent plugins,
+custom CLI allowlists, external path permissions) stored outside individual repos (e.g. in
+`~/.config/forge/`) and layered into generated harness target configs during `forge init`
+and `forge sync-allowlist`.
+
+### Harness target
+A specific agent environment whose project-level configuration `forge` scaffolds and
+reconciles (`opencode.jsonc` for OpenCode, `.claude/` for Claude Code, `.codex/` for Codex).
