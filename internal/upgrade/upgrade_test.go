@@ -14,7 +14,7 @@ func testAssets() fstest.MapFS {
 		"templates/common/claude/hooks/secret-scan.sh":     &fstest.MapFile{Data: []byte("#!/usr/bin/env bash\n# secret-scan v1\n")},
 		"templates/common/claude/settings.json":            &fstest.MapFile{Data: []byte(`{"hooks":{}}` + "\n")},
 		"templates/common/codex/hooks.json":                &fstest.MapFile{Data: []byte(`{"hooks":{}}` + "\n")},
-		"templates/common/opencode.json.tmpl":              &fstest.MapFile{Data: []byte(`{"lsp":{},"permission":{"bash":{"// BEGIN FORGE ALLOW v:2","// END FORGE ALLOW"}}}` + "\n")},
+		"templates/common/opencode.jsonc.tmpl":             &fstest.MapFile{Data: []byte(`{"lsp":{},"permission":{"bash":{"// BEGIN FORGE ALLOW v:2","// END FORGE ALLOW"}}}` + "\n")},
 		"templates/common/opencode/plugins/forge-hooks.js": &fstest.MapFile{Data: []byte(`export const ForgeHooks = async () => {};` + "\n")},
 	}
 }
@@ -56,7 +56,7 @@ func TestCheckReportsCurrentWhenVersionMatches(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte("2\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte("3\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,9 +124,9 @@ func TestRunOverwritesManagedFiles(t *testing.T) {
 		t.Fatalf("guard not overwritten: got %q", string(data))
 	}
 
-	// Verify opencode.json was created
-	if _, err := os.Stat(filepath.Join(dir, "opencode.json")); err != nil {
-		t.Fatalf("opencode.json not created: %v", err)
+	// Verify opencode.jsonc was created
+	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); err != nil {
+		t.Fatalf("opencode.jsonc not created: %v", err)
 	}
 
 	// Verify vendor plugin was created
@@ -139,8 +139,8 @@ func TestRunOverwritesManagedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(string(vData)) != "2" {
-		t.Fatalf("version file = %q, want \"2\"", string(vData))
+	if strings.TrimSpace(string(vData)) != "3" {
+		t.Fatalf("version file = %q, want \"3\"", string(vData))
 	}
 }
 
@@ -206,9 +206,9 @@ func TestRunCreatesDirectoriesForMissingFiles(t *testing.T) {
 		t.Fatalf(".opencode/plugins/forge-hooks.js not created: %v", err)
 	}
 
-	// Verify opencode.json was created
-	if _, err := os.Stat(filepath.Join(dir, "opencode.json")); err != nil {
-		t.Fatalf("opencode.json not created: %v", err)
+	// Verify opencode.jsonc was created
+	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); err != nil {
+		t.Fatalf("opencode.jsonc not created: %v", err)
 	}
 }
 
