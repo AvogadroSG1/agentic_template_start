@@ -13,8 +13,8 @@ dependencies:
         - /Users/poconnor/peter_code/ai_support/skills/superpowers/requesting-code-review
         - /Users/poconnor/peter_code/ai_support/skills/workflow/git-pushing
         - /Users/poconnor/peter_code/ai_support/skills/ai-workflow/mattpocock/domain-modeling
-        - /Users/poconnor/peter_code/ai_support/skills/ai-workflow/mattpocock/to-issues
-        - /Users/poconnor/peter_code/ai_support/skills/ai-workflow/mattpocock/to-prd
+        - /Users/poconnor/peter_code/ai_support/skills/ai-workflow/mattpocock/to-tickets
+        - /Users/poconnor/peter_code/ai_support/skills/ai-workflow/mattpocock/to-spec
         - /Users/poconnor/peter_code/ai_support/skills/superpowers/subagent-driven-development
         - /Users/poconnor/peter_code/ai_support/skills/superpowers/using-git-worktrees
         - /Users/poconnor/peter_code/ai_support/skills/superpowers/verification-before-completion

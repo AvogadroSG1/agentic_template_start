@@ -9,7 +9,7 @@
     // Read permissions: allow all repository files except sensitive secrets
     "read": {
       "*": "allow",
-      "// BEGIN FORGE ALLOW v:2",
+      //"// BEGIN FORGE ALLOW v:2",
       "**/.env": "deny",
       "**/.env.*": "deny",
       "**/*.pem": "deny",
@@ -152,7 +152,7 @@
       "brew info*": "allow",
       "docker images*": "allow",
 {{- end }}
-      "// END FORGE ALLOW"
+      //"// END FORGE ALLOW"
     },
 
     // Built-in tools allowed unconditionally
