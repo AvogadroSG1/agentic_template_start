@@ -342,7 +342,7 @@ func TestReadSeedSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSeedSkills(go) error = %v", err)
 	}
-	for _, want := range []string{"golang/golang-cli", "productivity/mise", "superpowers/brainstorming"} {
+	for _, want := range []string{"coding/golang/golang-cli", "productivity/mise", "superpowers/brainstorming"} {
 		if !slices.Contains(goSkills, want) {
 			t.Fatalf("go seed skills = %#v, want to contain %q", goSkills, want)
 		}
@@ -352,13 +352,13 @@ func TestReadSeedSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSeedSkills(python) error = %v", err)
 	}
-	if slices.Contains(pythonSkills, "golang/golang-cli") {
+	if slices.Contains(pythonSkills, "coding/golang/golang-cli") {
 		t.Fatalf("python seed skills = %#v, want no golang-cli", pythonSkills)
 	}
 	if !slices.Contains(pythonSkills, "productivity/mise") {
 		t.Fatalf("python seed skills = %#v, want to contain mise", pythonSkills)
 	}
-	if !slices.Contains(pythonSkills, "python/python-code-style") {
+	if !slices.Contains(pythonSkills, "coding/python/python-code-style") {
 		t.Fatalf("python seed skills = %#v, want to contain python-code-style", pythonSkills)
 	}
 }
