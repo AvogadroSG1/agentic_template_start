@@ -572,7 +572,12 @@ is_interpreter_command() {
   esac
 
   for token in "${tokens[@]:1}"; do
-    [ "$(normalize_token "$token")" = "$flag" ] && return 0
+    token="$(normalize_token "$token")"
+    case "$token" in
+      "$flag") return 0 ;;
+      --*) ;;
+      -*) has_short_flag "$token" "${flag#-}" && return 0 ;;
+    esac
   done
 
   return 1
