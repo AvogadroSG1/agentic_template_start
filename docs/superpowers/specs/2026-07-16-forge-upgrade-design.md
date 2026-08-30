@@ -149,3 +149,29 @@ Scenario: Non-forge directory is rejected
 ## Version Bumping Discipline
 
 The `Version` constant MUST be incremented in any commit that modifies a file under `templates/common/claude/hooks/`, `templates/common/claude/settings.json`, or `templates/common/codex/hooks.json`. This is a manual invariant enforced by reviewer discipline, testable by a gate test that compares embedded file hashes against a pinned set for the declared version.
+
+## Addendum — 2026-08-30: unconditional overwrite superseded by ownership classes
+
+The "unconditional overwrite of all managed static infrastructure files" decision above is no
+longer how `forge upgrade` treats `.claude/settings.json`, `.codex/hooks.json`, or
+`opencode.jsonc`. It caused a real incident (a blind overwrite of `.claude/settings.json` in the
+`todo-cli` repo destroyed third-party `bd`-installed hook entries) and, separately, a defect where
+`opencode.jsonc` was byte-copied from its unrendered `.tmpl` source.
+
+`forge upgrade` now classifies every managed file into one of three **ownership classes** —
+wholly-owned (this doc's model still applies: blind byte-copy), co-owned/hook-config (reconciled
+by per-entry command-string identity, never overwritten wholesale), and co-owned/init-rendered
+(rendered from persisted init params only when missing, never re-touched once present) — rather
+than treating every managed file identically. See:
+
+- `docs/SPEC.md` §3.1 for the ownership-class table and §19 for the full current upgrade-path
+  behavior and Gherkin scenarios.
+- `docs/adr/0016-co-owned-config-reconciled-by-owned-entry-identity.md` and
+  `docs/adr/0017-committed-forge-manifest-with-legacy-marker-fallback.md` for the two decisions
+  that superseded this design.
+- `docs/handoffs/2026-08-30-upgrade-coownership.md` for the full defect-and-fix narrative.
+
+The command surface (`forge upgrade [--check]`), the `.forge-infra-version` marker (now paired
+with a committed `.forge/manifest.json`, ADR-0017), and the idempotency/write-order invariants
+this document establishes are all still current; only the "every managed file is blind-copied"
+assumption has been replaced.

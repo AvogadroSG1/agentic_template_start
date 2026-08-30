@@ -100,6 +100,23 @@ flowchart TD
 
 The engine choice, distribution, and offline/vendored posture are recorded in **ADR-0007**.
 
+### 3.1 Ownership classes — who may write a managed file
+
+Every managed file `forge init` scaffolds and `forge upgrade` propagates falls into exactly one
+ownership class. The class determines how `forge upgrade` is allowed to write it — never the
+reverse; ownership is declared once, per file, not inferred at write time.
+
+| Class | Files | Upgrade behavior |
+|---|---|---|
+| **Wholly-owned** | `.claude/hooks/guard`, `.claude/hooks/secret-scan.sh`, `.opencode/plugins/forge-hooks.js` | Nothing else ever writes to these. Blind byte-copy from the embedded template, unconditionally. |
+| **Co-owned (hook config)** | `.claude/settings.json`, `.codex/hooks.json` | Other tools (`bd`, notably) append their own entries into the same top-level `hooks` object. Reconciled by owned-entry identity (`internal/hookcfg.Reconcile`, **ADR-0016**) — never blind-overwritten. |
+| **Co-owned (init-rendered)** | `opencode.jsonc` | Templated with init-time parameters that only exist in memory during `forge init`. `forge upgrade` renders it from `.forge/manifest.json`'s persisted params **only when the file is missing**; once present, upgrade never touches it again (**ADR-0017**). |
+| **Delegated** | `.beads/` (via `bd`), `.apm/` (via `instill`) | Owned entirely by the delegate tool. `forge` does not write their contents; it only repairs directory permissions it is responsible for (`.beads` 0700) and detects drift. |
+
+Co-owned files are the load-bearing case: a blind overwrite of either co-owned class is the exact
+defect ADR-0016 and ADR-0017 close (destroyed third-party hook entries; raw `{{ }}` template
+syntax written to disk). See **§19** for the full upgrade-path behavior.
+
 ---
 
 ## 4. Init lifecycle
@@ -117,15 +134,19 @@ The ordered mutation is: Phase 1 (render/copy/link) → guard install → `bd in
 bootstrap`/`init`/`sync` → `lefthook install` → Phase 3 remote. `instill bootstrap` (which
 ensures the `apm` CLI) is the one non-fatal step: if it fails, the skills phase is skipped and
 init continues — the repo self-heals later via `instill bootstrap && instill sync` (ADR-0012).
-Three orderings are load-bearing:
+Four orderings are load-bearing:
 
 - **Guard installs before `bd init`**, so beads' own git-hook install runs under the guard.
 - **`lefthook install` runs after `bd init`** in chain/non-clobber mode, preserving beads' hooks
   (verification owned by `485`; cites ADR-0003).
+- **`upgrade.Stamp` writes `.forge/manifest.json` and `.forge-infra-version` immediately after
+  the Phase 1 scaffold writer succeeds, before Phase 3's `git add`/`commit`** (**ADR-0017**), so a
+  freshly scaffolded repo is born at the current infrastructure version — never v0 — and both
+  files ride the initial scaffold commit.
 - **Phase 3 runs last** (**ADR-0009**), so the first commit/push passes the full gate pipeline.
 
 Immediately after `bd init`, forge tightens `.beads` to 0700 (git does not preserve directory
-modes; `forge upgrade` will also repair this in a later unit).
+modes). `forge upgrade` also repairs this drift when detected — see **§19**.
 
 ### 4.3 Failure posture — fail-fast, no rollback
 
@@ -888,6 +909,28 @@ Scenario: Upgrade preserves third-party hook entries
   When the user runs forge upgrade
   Then forge-managed entries match the template
   And the beads-installed entry is still present
+
+Scenario: Clone of a scaffolded repo is not stale
+  Given a repo scaffolded by forge init, with .forge/manifest.json and
+    .forge-infra-version committed in the initial scaffold commit
+  When another machine clones the repo and SessionStart fires `forge upgrade --check`
+  Then the check exits 0 with no advisory
+  And no files are modified
+
+Scenario: Beads permission drift is reported and repaired
+  Given a repo whose .beads directory mode has drifted away from 0700
+  When the user runs `forge upgrade --check`
+  Then the command reports the .beads permission drift and exits 1
+  And the .beads directory mode is left unchanged
+  When the user then runs `forge upgrade`
+  Then the .beads directory mode is repaired to 0700
+  And the repair is reported on stdout
+
+Scenario: Upgrade never writes template syntax to disk
+  Given a repo with no opencode.jsonc and a .forge/manifest.json carrying init params
+  When the user runs `forge upgrade`
+  Then opencode.jsonc is rendered from the .tmpl using text/template, missingkey=error
+  And no file written by upgrade contains unrendered "{{" template syntax
 ```
 
 ---

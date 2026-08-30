@@ -29,10 +29,13 @@ uninstall: ## Remove installed forge from BINDIR
 clean: ## Remove local build outputs
 	rm -rf $(BIN_DIR)
 
-verify-fast: build ## Run fast-gate template verification (CLI stacks only)
+verify-fast: build ## Run fast-gate verification (CLI stacks + upgrade co-ownership E2E)
 	GOCACHE=$(CURDIR)/.cache/go-build go test -tags=integration -count=1 \
 		-timeout=10m \
 		-run "TestLocalRelease/(go-cli-cobra|python-cli-typer|csharp-cli)" ./test/
+	GOCACHE=$(CURDIR)/.cache/go-build go test -tags=integration -count=1 \
+		-timeout=5m \
+		-run "TestUpgradePreservesCoOwnedConfigEndToEnd" ./test/
 
 verify-slow: build ## Run slow-gate template verification (all stacks)
 	GOCACHE=$(CURDIR)/.cache/go-build go test -tags=integration -count=1 \

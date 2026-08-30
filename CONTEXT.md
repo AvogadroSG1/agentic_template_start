@@ -130,3 +130,37 @@ and `forge sync-allowlist`.
 ### Harness target
 A specific agent environment whose project-level configuration `forge` scaffolds and
 reconciles (`opencode.jsonc` for OpenCode, `.claude/` for Claude Code, `.codex/` for Codex).
+
+### Ownership class
+The declaration of who may write a given managed file, fixed per file, never inferred at write
+time: **wholly-owned** (nothing else writes it; `forge upgrade` blind byte-copies it),
+**co-owned** (another tool or `forge init` itself also has a legitimate claim on part of the
+file; `forge upgrade` reconciles rather than overwrites), or **delegated** (owned entirely by
+another tool — `bd`, `instill` — and never written by `forge` at all). See SPEC §3.1.
+
+### Co-owned file
+A managed file where more than one writer has a legitimate claim: `.claude/settings.json` and
+`.codex/hooks.json` (bd and other tools append their own hook entries; reconciled by **owned
+entry** identity, ADR-0016) and `opencode.jsonc` (rendered once from init-time params, then
+never touched again; ADR-0017). Distinct from a **wholly-owned** file, which `forge upgrade`
+may always overwrite unconditionally.
+
+### Owned entry
+The unit of ownership inside a co-owned hook-config file: one command string appearing in the
+canonical embedded template's `hooks` object. Ownership in `internal/hookcfg.Reconcile` is
+per-entry, never per-matcher-group and never per-file — a matcher group can hold both a
+forge-owned entry and a third-party entry side by side, and only the former is ever rewritten
+(ADR-0016).
+
+### Forge manifest
+`.forge/manifest.json`, a committed JSON record (`schemaVersion`, `infraVersion`, and the init
+params `language`/`frontend`/`includePersonal`/`stack`) written by `forge init` and kept current
+by `forge upgrade`. Lets `forge upgrade` re-render init-time-parameterized files (`opencode.jsonc`)
+using the params a repo was actually scaffolded with, instead of only knowing a bare version
+integer (ADR-0017).
+
+### Legacy infra marker
+`.forge-infra-version`, a bare integer file that predates the **forge manifest**. Kept as a
+fallback for repos scaffolded before the manifest existed and for `forge` binaries older than
+v4 that don't know the manifest format. When both files are present, the manifest's
+`infraVersion` is authoritative (ADR-0017).
