@@ -50,12 +50,16 @@ by multiple callers (lefthook locally, GitHub Actions in CI) so the definition n
 drifts. Fast gates (lint/format) run on pre-commit; full tests run on pre-push and in CI.
 
 ### Guideline file (canonical)
-`~/peter_code/ai_support/guidelines/{golang,python,csharp}.md` — the author's written
-language standards. The **minimum source of truth** (the *floor*) for what a template's
-overlay installs: the overlay MUST implement every guideline MUST/SHOULD and MAY add vetted
-extras the guideline is silent on. A lightweight conformance test asserts the floor — it
+`~/peter_code/ai_support/guidelines/{golang,python,csharp,typescript,rust,bash}.md` — the
+author's written language standards. The **minimum source of truth** (the *floor*) for what a
+template's overlay installs: the overlay MUST implement every guideline MUST/SHOULD and MAY add
+vetted extras the guideline is silent on. A lightweight conformance test asserts the floor — it
 fails when a guideline MUST has no corresponding overlay tool, not when the overlay ships an
 extra. A template may only ship for a language that has a guideline file (v1: Go, Python, C#).
+The conformance test reads byte-for-byte snapshots of these files vendored in-repo at
+`test/testdata/guidelines/`, not the canonical path itself, so `go test ./...` stays hermetic on
+machines (including CI) without `~/peter_code/ai_support/` (**ADR-0018**); a separate drift test
+checks the vendored snapshots against the canonical path when it exists.
 
 ### Skill seed vs. APM manifest
 The **seed** (`templates/seed/skills.json.tmpl`) is forge's embedded default skill list, rendered in memory at init to build `instill init --skills` — never scaffolded into the repo. The **APM manifest pair** (`apm.yml` + `apm.lock.yaml`, written by `instill`/`apm`) is the committed, portable declaration of which skills the repo uses (the lockfile). `.apm/` is the compiled skill content — machine-regenerable and gitignored; `instill sync` (`apm install` + `apm compile`) regenerates it on clone (the node_modules).
