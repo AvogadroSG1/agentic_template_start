@@ -124,6 +124,9 @@ Three orderings are load-bearing:
   (verification owned by `485`; cites ADR-0003).
 - **Phase 3 runs last** (**ADR-0009**), so the first commit/push passes the full gate pipeline.
 
+Immediately after `bd init`, forge tightens `.beads` to 0700 (git does not preserve directory
+modes; `forge upgrade` will also repair this in a later unit).
+
 ### 4.3 Failure posture — fail-fast, no rollback
 
 On any step failure, init stops at that step, leaves the partial state, and prints the failed

@@ -529,6 +529,54 @@ func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
 	}
 }
 
+func TestInitializerSecuresBeadsDirPermissions(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		afterStep: func(dir string, step string, _ string, _ ...string) error {
+			if step == "bd init" {
+				// bd init creates .beads under the ambient umask → 0755.
+				if err := seedBeadsHooks(dir); err != nil {
+					return err
+				}
+				return os.Chmod(filepath.Join(dir, ".beads"), 0o755)
+			}
+			return nil
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl":              {Data: []byte("{\"skills\":[\"mise\"]}\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	err := init.Run(context.Background(), tempDir, project.Variables{
+		ProjectName: "Sample App",
+		Language:    "go",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(tempDir, ".beads"))
+	if err != nil {
+		t.Fatalf("Stat(.beads) error = %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf(".beads mode after init = %o, want 700 (bd requires owner-only)", info.Mode().Perm())
+	}
+}
+
 func seedBeadsHooks(dir string) error {
 	hooksDir := filepath.Join(dir, ".beads", "hooks")
 	if err := os.MkdirAll(hooksDir, 0o755); err != nil {

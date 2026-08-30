@@ -79,6 +79,9 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 			return failWithRecovery(targetDir, step.name, err)
 		}
 		if step.name == "bd init" {
+			if _, err := upgrade.EnsureBeadsDirPerms(targetDir); err != nil {
+				return failWithRecovery(targetDir, "beads permissions", err)
+			}
 			if err := i.Runner.Run(ctx, targetDir, "instill bootstrap", "instill", "bootstrap"); err != nil {
 				// APM bootstrap needs Homebrew; a repo without skills is still
 				// usable and self-heals later via `instill bootstrap && instill sync`.
