@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -287,8 +288,8 @@ func TestRunSkipsManifestBackfillWhenInferenceFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(string(legacy)) != "4" {
-		t.Fatalf("legacy marker = %q, want current version stamped", string(legacy))
+	if want := strconv.Itoa(Version); strings.TrimSpace(string(legacy)) != want {
+		t.Fatalf("legacy marker = %q, want current version stamped (%s)", string(legacy), want)
 	}
 }
 

@@ -53,4 +53,4 @@
 # - github.org
 # - github.repo
 
-sync.remote: "git+https://github.com/AvogadroSG1/agentic_template_start.git"
+sync.remote: "git+https://github.com/AvogadroSG1/forge.git"

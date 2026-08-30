@@ -132,6 +132,23 @@ block on a manifest it cannot honestly construct (ADR-0017 Consequences).
 - `test/upgrade_coownership_test.go` — the end-to-end regression test reconstructing the
   `todo-cli`-shaped incident against the released binary; wired into `make verify-fast`.
 
+## Infra v5 addendum
+
+While remediating the v4 incident above, `todo-cli`'s own pinned guard regression test caught a
+second, unrelated defect in the shipped guard: rule D16 (interpreter command execution denied)
+failed to block bundled short flags — `zsh -ic '...'`, `bash -lc '...'`, and `perl -we '1'` all
+passed through unblocked, because `is_interpreter_command`'s token loop did a bare string-equality
+check against the flag instead of using the existing `has_short_flag` helper that every other rule
+in the file already relies on for this exact bundled-flag case. This is not the co-ownership defect
+this handoff otherwise documents — it is a correctness bug in the guard's own logic — but it was
+found and fixed by the same mechanism this handoff describes: `templates/common/claude/hooks/guard`
+is a wholly forge-owned template source, so any change to its content changes its embedded hash,
+which requires the fingerprint-bump ritual above. `upgrade.Version` moved 4 → 5, and
+`internal/upgrade/testdata/pinned-hashes.txt` was regenerated; only the `guard` entry's hash
+changed, confirming no other managed file was touched. No `defaultRegistry.Historical` entry was
+needed since the guard's script body, not a `settings.json`/`hooks.json` command string, is what
+changed.
+
 ---
 
 *Authored By Peter O'Connor with Assistance from Claude Code (claude-sonnet-5) · 2026-08-30 · forge upgrade co-ownership series*
