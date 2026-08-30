@@ -1,0 +1,27 @@
+internal/init/init.go
+  s_e254869bd6c995::t_157c1102706255 82-84
+docs/SPEC.md
+  s_e254869bd6c995::t_45956d6fc49d76 127-129
+internal/upgrade/beadsperms_test.go
+  s_e254869bd6c995::t_4ee40f65fcca43 1-81
+internal/upgrade/beadsperms.go
+  s_e254869bd6c995::t_b15726a3534fcc 1-36
+internal/init/init_test.go
+  s_e254869bd6c995::t_d31fbeee004bf3 532-579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "965126792ea700ff0559e9eef6b4423cacb890b9",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
