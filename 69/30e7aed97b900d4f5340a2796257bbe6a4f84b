@@ -1,0 +1,31 @@
+docs/SPEC.md
+  s_e254869bd6c995::t_f591cd17783058 137,142-145,149
+  s_e254869bd6c995::t_e8583376b06faf 103-119
+  s_e254869bd6c995::t_0dd6f5552abe7b 912-933
+CONTEXT.md
+  s_e254869bd6c995::t_f646cb865c3ed2 133-166
+Makefile
+  s_e254869bd6c995::t_c2b7ed406edb6c 32,36-38
+test/upgrade_coownership_test.go
+  s_e254869bd6c995::t_873d852fa2b911 1-211
+docs/superpowers/specs/2026-07-16-forge-upgrade-design.md
+  s_e254869bd6c995::t_c4d8fab5814768 152-177
+docs/handoffs/2026-08-30-upgrade-coownership.md
+  s_e254869bd6c995::t_8ebf58d9ceabb2 1-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6930e7aed97b900d4f5340a2796257bbe6a4f84b",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
