@@ -1,0 +1,32 @@
+test/security_hooks_test.go
+  s_e254869bd6c995::t_2bfa22ec8fc34c 145-147
+.claude/hooks/guard
+  s_e254869bd6c995::t_1b2deb8dddd7b0 575-580
+internal/upgrade/upgrade.go
+  s_e254869bd6c995::t_dc98d308ac56d0 19
+templates/common/claude/hooks/guard
+  s_e254869bd6c995::t_24b26ddb8ce66f 575-580
+internal/upgrade/upgrade_wire_test.go
+  s_e254869bd6c995::t_9a9400d1138e0e 291-292
+  s_e254869bd6c995::t_a9b2ee1cb022c2 8
+docs/handoffs/2026-08-30-upgrade-coownership.md
+  s_e254869bd6c995::t_8d3fb926e4eb0b 135-151
+internal/upgrade/testdata/pinned-hashes.txt
+  s_e254869bd6c995::t_849bf0dca22678 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8ba3e28189dc02959377964cf6aa9ef8832708c6",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
