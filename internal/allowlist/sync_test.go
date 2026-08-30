@@ -158,4 +158,3 @@ func TestCanonicalBlockOpenCodeRendersFromJSONCTemplate(t *testing.T) {
 		t.Fatalf("CanonicalBlockOpenCode() missing go rule in:\n%s", block)
 	}
 }
-

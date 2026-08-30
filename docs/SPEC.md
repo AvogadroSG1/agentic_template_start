@@ -100,6 +100,23 @@ flowchart TD
 
 The engine choice, distribution, and offline/vendored posture are recorded in **ADR-0007**.
 
+### 3.1 Ownership classes — who may write a managed file
+
+Every managed file `forge init` scaffolds and `forge upgrade` propagates falls into exactly one
+ownership class. The class determines how `forge upgrade` is allowed to write it — never the
+reverse; ownership is declared once, per file, not inferred at write time.
+
+| Class | Files | Upgrade behavior |
+|---|---|---|
+| **Wholly-owned** | `.claude/hooks/guard`, `.claude/hooks/secret-scan.sh`, `.opencode/plugins/forge-hooks.js` | Nothing else ever writes to these. Blind byte-copy from the embedded template, unconditionally. |
+| **Co-owned (hook config)** | `.claude/settings.json`, `.codex/hooks.json` | Other tools (`bd`, notably) append their own entries into the same top-level `hooks` object. Reconciled by owned-entry identity (`internal/hookcfg.Reconcile`, **ADR-0016**) — never blind-overwritten. |
+| **Co-owned (init-rendered)** | `opencode.jsonc` | Templated with init-time parameters that only exist in memory during `forge init`. `forge upgrade` renders it from `.forge/manifest.json`'s persisted params **only when the file is missing**; once present, upgrade never touches it again (**ADR-0017**). |
+| **Delegated** | `.beads/` (via `bd`), `.apm/` (via `instill`) | Owned entirely by the delegate tool. `forge` does not write their contents; it only repairs directory permissions it is responsible for (`.beads` 0700) and detects drift. |
+
+Co-owned files are the load-bearing case: a blind overwrite of either co-owned class is the exact
+defect ADR-0016 and ADR-0017 close (destroyed third-party hook entries; raw `{{ }}` template
+syntax written to disk). See **§19** for the full upgrade-path behavior.
+
 ---
 
 ## 4. Init lifecycle
@@ -117,12 +134,19 @@ The ordered mutation is: Phase 1 (render/copy/link) → guard install → `bd in
 bootstrap`/`init`/`sync` → `lefthook install` → Phase 3 remote. `instill bootstrap` (which
 ensures the `apm` CLI) is the one non-fatal step: if it fails, the skills phase is skipped and
 init continues — the repo self-heals later via `instill bootstrap && instill sync` (ADR-0012).
-Three orderings are load-bearing:
+Four orderings are load-bearing:
 
 - **Guard installs before `bd init`**, so beads' own git-hook install runs under the guard.
 - **`lefthook install` runs after `bd init`** in chain/non-clobber mode, preserving beads' hooks
   (verification owned by `485`; cites ADR-0003).
+- **`upgrade.Stamp` writes `.forge/manifest.json` and `.forge-infra-version` immediately after
+  the Phase 1 scaffold writer succeeds, before Phase 3's `git add`/`commit`** (**ADR-0017**), so a
+  freshly scaffolded repo is born at the current infrastructure version — never v0 — and both
+  files ride the initial scaffold commit.
 - **Phase 3 runs last** (**ADR-0009**), so the first commit/push passes the full gate pipeline.
+
+Immediately after `bd init`, forge tightens `.beads` to 0700 (git does not preserve directory
+modes). `forge upgrade` also repairs this drift when detected — see **§19**.
 
 ### 4.3 Failure posture — fail-fast, no rollback
 
@@ -751,6 +775,7 @@ myproject/
 ├── .claude/{settings.json, settings.local.json, hooks/{guard, secret-scan.sh}}
 ├── apm.yml, apm.lock.yaml [delegate]   ├── .apm/              [delegate, gitignored]
 ├── .codex/hooks.json                   ├── .beads/            [delegate]
+├── .forge/manifest.json   [render]     ├── .forge-infra-version   [render, legacy fallback]
 ├── mise.toml, lefthook.yml, .github/workflows/ci.yml
 └── <composed golden tree>  vanilla + overlay, rendered
 ```
@@ -800,15 +825,60 @@ flowchart TD
 ## 19. Infrastructure upgrade path
 
 `forge upgrade` propagates managed static infrastructure files from the embedded template into an
-existing forge-scaffolded repository. It overwrites `.claude/hooks/guard`,
-`.claude/hooks/secret-scan.sh`, `.claude/settings.json`, and `.codex/hooks.json` unconditionally
-when the on-disk infrastructure version is behind the embedded version.
+existing forge-scaffolded repository when the on-disk infrastructure version is behind the
+embedded version. `.claude/hooks/guard`, `.claude/hooks/secret-scan.sh`, and
+`.opencode/plugins/forge-hooks.js` are wholly forge-owned: nothing else writes to them, so they are
+overwritten unconditionally (blind byte-copy).
+
+`.claude/settings.json` and `.codex/hooks.json` are **co-owned**: other tools (bd, notably) append
+their own entries into the same top-level `hooks` object. These two files are never blind-
+overwritten. When the destination does not exist yet, the embedded template is written directly.
+When it exists, `internal/hookcfg.Reconcile` (ADR-0016) merges it against the canonical template by
+per-entry command-string identity: every owned entry converges to its canonical form exactly once;
+every third-party matcher group, entry, and unrelated top-level key survives untouched; a
+historical registry (`bd prime || true` ← `bd prime`, etc.) converges old shipped forms instead of
+leaving them as stale duplicates. A malformed on-disk co-owned file fails the upgrade loudly, names
+the file in the error, and is left unmodified — it is not overwritten, and no marker or manifest is
+stamped for that run, so a fixed repo re-applies cleanly on the next `forge upgrade`.
+
+`opencode.jsonc` is co-owned differently: it is rendered from a `.tmpl` using project-specific
+parameters, so blind-copying the raw template would write unrendered `{{ }}` syntax to disk.
+`forge upgrade` renders it **only when the file is missing** on disk, using
+`.forge/manifest.json`'s persisted `language`/`frontend`/`includePersonal` params (`text/template`,
+`missingkey=error`); once it exists, upgrade never touches it again — hand edits and its managed
+allow-block (kept in sync via `forge sync-allowlist`) both survive. A repo with no manifest yet
+(uninferable params) skips the render silently rather than guessing.
 
 Version state lives in `.forge-infra-version` (repo root). Missing file → version 0 → always stale.
-The version file is written last so interrupted upgrades re-apply.
+Managed writes happen first; the version marker and manifest are written last so interrupted
+upgrades re-apply.
 
-`forge upgrade --check` reports staleness (exit 1 if behind) without mutation. The SessionStart
-hooks in both `settings.json` and `codex/hooks.json` run this advisory on every session open.
+`forge init` stamps both `.forge/manifest.json` and `.forge-infra-version` during Phase 1, right
+after the scaffold writer runs and before Phase 3 (`git add`/`commit`), so a freshly scaffolded
+repo is born at the current infrastructure version — never v0 — and both files ride the initial
+scaffold commit. `.forge/manifest.json` is a committed JSON record (`schemaVersion`,
+`infraVersion`, and the init params `language`, `frontend`, `includePersonal`, `stack`) that lets
+`forge upgrade` re-render templated files using the params the repo was actually scaffolded with,
+instead of only knowing a bare version integer. `.forge-infra-version` remains the legacy fallback
+marker for repos scaffolded before the manifest existed and for v3-and-earlier `forge` binaries
+that don't know about it. When both are present, the manifest's `infraVersion` is authoritative;
+`forge upgrade` on a repo with a manifest preserves its params while advancing `infraVersion`.
+
+On a legacy repo with no manifest, `forge upgrade` attempts a best-effort backfill: it infers
+`language` and `frontend` from the managed allowlist block in `.claude/settings.local.json`
+(`allowlist.InferLanguage`/`InferFrontend`; `includePersonal` always defaults `false`, since it is
+never inferable). When inference succeeds, `.forge/manifest.json` is written at the current
+`infraVersion` with the inferred params. When it fails (no `settings.local.json`, or an ambiguous
+managed block), the upgrade still succeeds — infra files were already reconciled above — but writes
+only the bare legacy marker and prints a one-line stderr notice suggesting the user create
+`.forge/manifest.json`; it never fabricates params (ADR-0017 Consequences).
+
+`forge upgrade` also repairs `.beads` directory permissions to `0700` if drifted
+(`EnsureBeadsDirPerms`), and reports the repair on stdout when one happened.
+
+`forge upgrade --check` reports staleness and `.beads` permission drift (exit 1 if either) without
+mutation — it uses `os.Stat` only, never `os.Chmod`. The SessionStart hooks in both
+`settings.json` and `codex/hooks.json` run this advisory on every session open.
 
 ```gherkin
 Scenario: First upgrade on a legacy repo
@@ -828,6 +898,39 @@ Scenario: Check mode advisory on session start
   When SessionStart fires `forge upgrade --check`
   Then the hook prints the staleness advisory and exits 1
   And no files are modified
+
+Scenario: Freshly scaffolded repo is born current
+  Given a repo just created by forge init
+  When SessionStart fires `forge upgrade --check`
+  Then the check exits 0 with no advisory
+
+Scenario: Upgrade preserves third-party hook entries
+  Given .claude/settings.json contains a beads-installed SessionStart hook
+  When the user runs forge upgrade
+  Then forge-managed entries match the template
+  And the beads-installed entry is still present
+
+Scenario: Clone of a scaffolded repo is not stale
+  Given a repo scaffolded by forge init, with .forge/manifest.json and
+    .forge-infra-version committed in the initial scaffold commit
+  When another machine clones the repo and SessionStart fires `forge upgrade --check`
+  Then the check exits 0 with no advisory
+  And no files are modified
+
+Scenario: Beads permission drift is reported and repaired
+  Given a repo whose .beads directory mode has drifted away from 0700
+  When the user runs `forge upgrade --check`
+  Then the command reports the .beads permission drift and exits 1
+  And the .beads directory mode is left unchanged
+  When the user then runs `forge upgrade`
+  Then the .beads directory mode is repaired to 0700
+  And the repair is reported on stdout
+
+Scenario: Upgrade never writes template syntax to disk
+  Given a repo with no opencode.jsonc and a .forge/manifest.json carrying init params
+  When the user runs `forge upgrade`
+  Then opencode.jsonc is rendered from the .tmpl using text/template, missingkey=error
+  And no file written by upgrade contains unrendered "{{" template syntax
 ```
 
 ---

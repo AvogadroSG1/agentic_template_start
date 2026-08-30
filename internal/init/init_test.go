@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -14,6 +15,7 @@ import (
 	"forge"
 	"forge/internal/project"
 	"forge/internal/scaffold"
+	"forge/internal/upgrade"
 )
 
 func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
@@ -72,6 +74,63 @@ func TestInitializerRunsPhaseOneThenDelegatesThenRemote(t *testing.T) {
 
 	assertRecordedStepArgs(t, runner.steps, "instill init", "init", "--force", "--skills", "golang-cli,mise", "--targets", "claude,codex,opencode")
 	assertRecordedStepArgs(t, runner.steps, "mise trust", "trust", "--all")
+}
+
+func TestInitializerStampsForgeManifest(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl": {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base": {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl": {
+			Data: []byte("{\"skills\":[\"golang-cli\",\"mise\"]}\n"),
+		},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go.tmpl":   {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	vars, err := project.ResolveVariables(project.Input{
+		ProjectName: "Sample App",
+		Language:    "go",
+		ProjectType: "cli",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveVariables() error = %v", err)
+	}
+
+	if err := init.Run(context.Background(), tempDir, vars); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	// The manifest and legacy marker are stamped during Phase 1, before the
+	// remote publish step's git add/commit, so both ride the scaffold commit.
+	m, err := upgrade.ReadManifest(tempDir)
+	if err != nil {
+		t.Fatalf("ReadManifest() error = %v; init must stamp .forge/manifest.json", err)
+	}
+	if m.InfraVersion != upgrade.Version {
+		t.Fatalf("manifest infraVersion = %d, want %d", m.InfraVersion, upgrade.Version)
+	}
+	if m.Language != "go" || m.Stack != "go-cli-cobra" {
+		t.Fatalf("manifest params = %+v, want language go / stack go-cli-cobra", m)
+	}
+
+	legacy, err := os.ReadFile(filepath.Join(tempDir, ".forge-infra-version"))
+	if err != nil {
+		t.Fatalf("legacy marker not written: %v", err)
+	}
+	if strings.TrimSpace(string(legacy)) != strconv.Itoa(upgrade.Version) {
+		t.Fatalf("legacy marker = %q, want %d", string(legacy), upgrade.Version)
+	}
 }
 
 func TestInitializerRunsPipInstallForPythonProjects(t *testing.T) {
@@ -467,6 +526,54 @@ func TestInitializerRepairsBeadsHooksAfterForcedLefthookInstall(t *testing.T) {
 				t.Fatalf("%s output order = %q, want beads hook before lefthook", hookPath, output)
 			}
 		})
+	}
+}
+
+func TestInitializerSecuresBeadsDirPermissions(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	runner := &recordingRunner{
+		afterStep: func(dir string, step string, _ string, _ ...string) error {
+			if step == "bd init" {
+				// bd init creates .beads under the ambient umask → 0755.
+				if err := seedBeadsHooks(dir); err != nil {
+					return err
+				}
+				return os.Chmod(filepath.Join(dir, ".beads"), 0o755)
+			}
+			return nil
+		},
+	}
+	writer := scaffold.Writer{Assets: fstest.MapFS{
+		"templates/common/AGENTS.md.tmpl":              {Data: []byte("Project {{.ProjectName}}\n")},
+		"templates/common/gitignore.base":              {Data: []byte(".DS_Store\n")},
+		"templates/seed/skills.json.tmpl":              {Data: []byte("{\"skills\":[\"mise\"]}\n")},
+		"templates/common/claude/hooks/secret-scan.sh": {Data: []byte("#!/usr/bin/env bash\n")},
+		"templates/common/codex/hooks.json":            {Data: []byte("{\"hooks\":{}}\n")},
+		"templates/gitignore/Go.gitignore":             {Data: []byte("bin/\n")},
+		"templates/golden/go-cli-cobra/main.go":        {Data: []byte("package main\n")},
+	}}
+	init := Initializer{Writer: writer, Runner: runner}
+
+	err := init.Run(context.Background(), tempDir, project.Variables{
+		ProjectName: "Sample App",
+		Language:    "go",
+		Stack:       "go-cli-cobra",
+		AuthorName:  "Ada Lovelace",
+		AuthorEmail: "ada@example.com",
+		Remote:      project.RemoteNone,
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(tempDir, ".beads"))
+	if err != nil {
+		t.Fatalf("Stat(.beads) error = %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf(".beads mode after init = %o, want 700 (bd requires owner-only)", info.Mode().Perm())
 	}
 }
 
