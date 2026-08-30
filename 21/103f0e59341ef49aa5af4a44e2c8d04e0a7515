@@ -1,0 +1,19 @@
+.beads/config.yaml
+  s_e254869bd6c995::t_cd772ba8938e02 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "21103f0e59341ef49aa5af4a44e2c8d04e0a7515",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
