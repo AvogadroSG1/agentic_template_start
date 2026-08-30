@@ -1,0 +1,27 @@
+docs/adr/0016-co-owned-config-reconciled-by-owned-entry-identity.md
+  s_e254869bd6c995::t_9484468faa4949 1-125
+internal/hookcfg/reconcile_test.go
+  s_e254869bd6c995::t_52e49c84b63d27 6
+  s_e254869bd6c995::t_01afde274b383a 257
+  s_e254869bd6c995::t_15bf3a6e3d78a1 1-5,7-256,258-273
+internal/hookcfg/reconcile.go
+  s_e254869bd6c995::t_66a4c7fa83cdbb 1-230
+internal/hookcfg/entry.go
+  s_e254869bd6c995::t_cb41c7055a5e37 1-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d44813d60838a4b9d80ed1812b9b168686c51940",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
