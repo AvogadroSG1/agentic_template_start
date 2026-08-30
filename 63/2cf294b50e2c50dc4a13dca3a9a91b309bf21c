@@ -1,0 +1,41 @@
+test/testdata/guidelines/bash.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-192
+test/testdata/guidelines/typescript.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-138
+docs/SPEC.md
+  s_54ef94f3b9b7e2::t_475a82c78a0de7 434-442
+  s_54ef94f3b9b7e2::t_2fda69cceaced9 806
+docs/adr/0018-vendored-guideline-snapshots-for-hermetic-conformance.md
+  s_54ef94f3b9b7e2::t_d3f596b61cc55e 1-68
+CONTEXT.md
+  s_54ef94f3b9b7e2::t_9bca802ec0ca49 53-56,59-62
+test/testdata/guidelines/python.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-185
+test/testdata/guidelines/golang.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-525
+test/guideline_vendoring_test.go
+  s_54ef94f3b9b7e2::t_f222ff20befdb1 1-82
+test/testdata/guidelines/csharp.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-189
+test/testdata/guidelines/rust.md
+  s_54ef94f3b9b7e2::t_c9f7f62c292e61 1-132
+test/guideline_conformance_test.go
+  s_54ef94f3b9b7e2::t_8af64ec41235d0 322-323,329
+  s_54ef94f3b9b7e2::t_74445ecdd79f98 189,192,202,217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "632cf294b50e2c50dc4a13dca3a9a91b309bf21c",
+  "prompts": {},
+  "sessions": {
+    "s_54ef94f3b9b7e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "595eab43-9ba1-4f31-b9a7-f51c2e08d5e7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
