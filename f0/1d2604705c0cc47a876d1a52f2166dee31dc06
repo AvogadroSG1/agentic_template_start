@@ -1,0 +1,30 @@
+internal/upgrade/upgrade.go
+  s_e254869bd6c995::t_eb2697396a8bcf 6,13-16,29-32,41-67,69-74,89-94,98-106,108,110-111,113-123,125-126,130,132-150,154,157,165-301,303-304
+internal/upgrade/beadsperms.go
+  s_e254869bd6c995::t_67593ee7c072cd 37-47
+internal/upgrade/upgrade_wire_test.go
+  s_e254869bd6c995::t_ef609fb32ff84d 1-381
+cmd/forge/main.go
+  s_e254869bd6c995::t_68f0640519597d 253,256-262,268-269
+  s_e254869bd6c995::t_48552032f90c1a 270-271
+docs/adr/0017-committed-forge-manifest-with-legacy-marker-fallback.md
+  s_e254869bd6c995::t_6677ff7eb6ff1e 102-105
+docs/SPEC.md
+  s_e254869bd6c995::t_14a374f5c23ca4 807-829,832-833,844-853,855-860,885-890
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f01d2604705c0cc47a876d1a52f2166dee31dc06",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
