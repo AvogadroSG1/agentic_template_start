@@ -1,0 +1,31 @@
+internal/upgrade/upgrade_test.go
+  s_e254869bd6c995::t_bb2445c4c90a1b 4,7
+  s_e254869bd6c995::t_3996da5ecdfd23 61
+  s_e254869bd6c995::t_28f40b5b99e79d 116-117,129-131,144-145
+  s_e254869bd6c995::t_d73c45d260fce3 197-198,211-213
+  s_e254869bd6c995::t_fbd6a42811086a 256-327
+internal/upgrade/testdata/pinned-hashes.txt
+  s_e254869bd6c995::t_0e598542409a2e 1
+internal/upgrade/upgrade.go
+  s_e254869bd6c995::t_150cbf0ff8e61a 14
+.github/workflows/verify-templates.yml
+  s_e254869bd6c995::t_bb2e5d92be438f 13-23
+docs/SPEC.md
+  s_e254869bd6c995::t_74545e64ba4ce5 804-812
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b2406614dcf02bd63084240f9a5d41988c570894",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
