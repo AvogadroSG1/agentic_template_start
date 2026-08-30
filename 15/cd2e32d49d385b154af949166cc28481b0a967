@@ -1,0 +1,21 @@
+.opencode/plugins/forge-hooks.js
+  s_e254869bd6c995::t_6a631cc4178e7f 1-22
+.forge-infra-version
+  s_e254869bd6c995::t_6a631cc4178e7f 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "15cd2e32d49d385b154af949166cc28481b0a967",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
