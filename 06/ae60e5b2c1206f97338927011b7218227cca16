@@ -1,0 +1,36 @@
+internal/upgrade/upgrade.go
+  s_e254869bd6c995::t_f89a6b5d318b66 119-122
+  s_e254869bd6c995::t_85fe5f0823b319 73-94,98,100
+internal/init/init_test.go
+  s_e254869bd6c995::t_944e28ddd287ac 79-135
+  s_e254869bd6c995::t_1e66c152cc19d2 10,18
+internal/init/init.go
+  s_e254869bd6c995::t_27598f53801ba0 48-60
+  s_e254869bd6c995::t_5c9a08d60c5b52 18
+internal/upgrade/manifest.go
+  s_e254869bd6c995::t_5635e6536d7046 1-77
+docs/adr/0017-committed-forge-manifest-with-legacy-marker-fallback.md
+  s_e254869bd6c995::t_bb1228146e3ec2 1-104
+internal/upgrade/upgrade_test.go
+  s_e254869bd6c995::t_50fc07208ff673 4
+  s_e254869bd6c995::t_bf10ab3577db4e 257-362
+docs/SPEC.md
+  s_e254869bd6c995::t_dd6cb30e726c67 754
+  s_e254869bd6c995::t_07eae15c09a5b8 818-829,851-855
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "06ae60e5b2c1206f97338927011b7218227cca16",
+  "prompts": {},
+  "sessions": {
+    "s_e254869bd6c995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "594a1b71-66fa-44dc-b8cf-f21327cde848",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Peter O'Connor <poconnor@stackoverflow.com>"
+    }
+  }
+}
