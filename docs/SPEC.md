@@ -751,6 +751,7 @@ myproject/
 ├── .claude/{settings.json, settings.local.json, hooks/{guard, secret-scan.sh}}
 ├── apm.yml, apm.lock.yaml [delegate]   ├── .apm/              [delegate, gitignored]
 ├── .codex/hooks.json                   ├── .beads/            [delegate]
+├── .forge/manifest.json   [render]     ├── .forge-infra-version   [render, legacy fallback]
 ├── mise.toml, lefthook.yml, .github/workflows/ci.yml
 └── <composed golden tree>  vanilla + overlay, rendered
 ```
@@ -814,6 +815,18 @@ are persisted for later re-rendering (a follow-up unit).
 Version state lives in `.forge-infra-version` (repo root). Missing file → version 0 → always stale.
 The version file is written last so interrupted upgrades re-apply.
 
+`forge init` stamps both `.forge/manifest.json` and `.forge-infra-version` during Phase 1, right
+after the scaffold writer runs and before Phase 3 (`git add`/`commit`), so a freshly scaffolded
+repo is born at the current infrastructure version — never v0 — and both files ride the initial
+scaffold commit. `.forge/manifest.json` is a committed JSON record (`schemaVersion`,
+`infraVersion`, and the init params `language`, `frontend`, `includePersonal`, `stack`) that lets
+`forge upgrade` re-render templated files using the params the repo was actually scaffolded with,
+instead of only knowing a bare version integer. `.forge-infra-version` remains the legacy fallback
+marker for repos scaffolded before the manifest existed and for v3-and-earlier `forge` binaries
+that don't know about it. When both are present, the manifest's `infraVersion` is authoritative;
+`forge upgrade` on a repo with a manifest preserves its params while advancing `infraVersion`, and
+on a legacy repo with no manifest it writes only the bare marker — it does not fabricate params.
+
 `forge upgrade --check` reports staleness (exit 1 if behind) without mutation. The SessionStart
 hooks in both `settings.json` and `codex/hooks.json` run this advisory on every session open.
 
@@ -835,6 +848,11 @@ Scenario: Check mode advisory on session start
   When SessionStart fires `forge upgrade --check`
   Then the hook prints the staleness advisory and exits 1
   And no files are modified
+
+Scenario: Freshly scaffolded repo is born current
+  Given a repo just created by forge init
+  When SessionStart fires `forge upgrade --check`
+  Then the check exits 0 with no advisory
 ```
 
 ---

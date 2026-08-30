@@ -70,13 +70,34 @@ func Run(assets fs.FS, targetDir string, checkOnly bool) (Status, error) {
 		status.Updated = append(status.Updated, mf.dest)
 	}
 
-	versionContent := fmt.Sprintf("%d\n", Version)
-	versionPath := filepath.Join(targetDir, versionFile)
-	if err := os.WriteFile(versionPath, []byte(versionContent), 0o644); err != nil {
-		return Status{}, fmt.Errorf("write %s: %w", versionFile, err)
+	// Version stamping happens last so an interrupted upgrade re-applies.
+	// Carry forward any existing manifest's params; a legacy repo with no
+	// manifest yet gets only the bare marker (Stamp still writes it), since
+	// inferring params here would be guesswork — a later unit backfills them.
+	m, err := ReadManifest(targetDir)
+	if err != nil {
+		if err := writeLegacyMarker(targetDir); err != nil {
+			return Status{}, err
+		}
+		return status, nil
+	}
+	if err := Stamp(targetDir, m); err != nil {
+		return Status{}, err
 	}
 
 	return status, nil
+}
+
+// writeLegacyMarker writes only .forge-infra-version, for repos with no
+// manifest yet. It does not create .forge/manifest.json, since this unit
+// must not fabricate init params for pre-existing repos.
+func writeLegacyMarker(targetDir string) error {
+	versionContent := fmt.Sprintf("%d\n", Version)
+	versionPath := filepath.Join(targetDir, versionFile)
+	if err := os.WriteFile(versionPath, []byte(versionContent), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", versionFile, err)
+	}
+	return nil
 }
 
 func validateForgeRepo(targetDir string) error {
@@ -95,6 +116,10 @@ func validateForgeRepo(targetDir string) error {
 }
 
 func readOnDiskVersion(targetDir string) int {
+	if m, err := ReadManifest(targetDir); err == nil {
+		return m.InfraVersion
+	}
+
 	data, err := os.ReadFile(filepath.Join(targetDir, versionFile))
 	if err != nil {
 		return 0

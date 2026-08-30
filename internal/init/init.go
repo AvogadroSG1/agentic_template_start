@@ -15,6 +15,7 @@ import (
 	"forge/internal/project"
 	"forge/internal/remote"
 	"forge/internal/scaffold"
+	"forge/internal/upgrade"
 )
 
 type Initializer struct {
@@ -42,6 +43,19 @@ func (i Initializer) Run(ctx context.Context, targetDir string, vars project.Var
 
 	if err := i.Writer.Write(targetDir, vars); err != nil {
 		return failWithRecovery(targetDir, "phase 1 scaffold writer", err)
+	}
+
+	// Stamp the manifest + legacy marker now, before Phase 3's git add/commit,
+	// so a freshly scaffolded repo is born at the current infrastructure
+	// version instead of v0 (defect A) and its init params are captured for
+	// later re-rendering by `forge upgrade` (defect E, wired in a later unit).
+	if err := upgrade.Stamp(targetDir, upgrade.Manifest{
+		Language:        vars.Language,
+		Frontend:        vars.Frontend,
+		IncludePersonal: vars.IncludePersonal,
+		Stack:           vars.Stack,
+	}); err != nil {
+		return failWithRecovery(targetDir, "infra version stamp", err)
 	}
 
 	skills, err := readSeedSkills(i.Writer.Assets, vars.Language)

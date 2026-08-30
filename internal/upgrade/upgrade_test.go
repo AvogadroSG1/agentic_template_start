@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -250,6 +251,112 @@ func TestRunSetsExecutablePermissionOnHooks(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o755 {
 		t.Fatalf("guard mode = %o, want 755", info.Mode().Perm())
+	}
+}
+
+func TestStampWritesManifestAndLegacyMarker(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := Stamp(dir, Manifest{Language: "go", Stack: "go-cli-cobra", IncludePersonal: true}); err != nil {
+		t.Fatalf("Stamp() error = %v", err)
+	}
+
+	m, err := ReadManifest(dir)
+	if err != nil {
+		t.Fatalf("ReadManifest() error = %v", err)
+	}
+	if m.SchemaVersion != 1 {
+		t.Fatalf("manifest schemaVersion = %d, want 1", m.SchemaVersion)
+	}
+	if m.InfraVersion != Version {
+		t.Fatalf("manifest infraVersion = %d, want %d", m.InfraVersion, Version)
+	}
+	if m.Language != "go" || m.Stack != "go-cli-cobra" || !m.IncludePersonal {
+		t.Fatalf("manifest params not preserved: %+v", m)
+	}
+
+	legacy, err := os.ReadFile(filepath.Join(dir, ".forge-infra-version"))
+	if err != nil {
+		t.Fatalf("legacy marker not written: %v", err)
+	}
+	if string(legacy) != fmt.Sprintf("%d\n", Version) {
+		t.Fatalf("legacy marker = %q, want %q", string(legacy), fmt.Sprintf("%d\n", Version))
+	}
+}
+
+func TestReadOnDiskVersionPrefersManifestOverLegacyMarker(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Stale legacy marker alongside a current manifest: the manifest wins.
+	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte("1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Stamp(dir, Manifest{Language: "go"}); err != nil {
+		t.Fatalf("Stamp() error = %v", err)
+	}
+	if got := readOnDiskVersion(dir); got != Version {
+		t.Fatalf("readOnDiskVersion = %d, want %d (manifest must win)", got, Version)
+	}
+}
+
+func TestReadOnDiskVersionFallsBackToLegacyMarker(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte("2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := readOnDiskVersion(dir); got != 2 {
+		t.Fatalf("readOnDiskVersion = %d, want 2 (legacy fallback)", got)
+	}
+}
+
+func TestRunPreservesManifestParamsWhileUpdatingInfraVersion(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Repo stamped at an older infra version but with a manifest carrying params.
+	if err := Stamp(dir, Manifest{Language: "python", Stack: "python-cli-typer"}); err != nil {
+		t.Fatalf("Stamp() error = %v", err)
+	}
+	stale := filepath.Join(dir, ".forge-infra-version")
+	if err := os.WriteFile(stale, []byte("0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	forceStale, err := ReadManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forceStale.InfraVersion = 0
+	data, err := json.Marshal(forceStale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".forge", "manifest.json"), append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Run(testAssets(), dir, false); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	m, err := ReadManifest(dir)
+	if err != nil {
+		t.Fatalf("ReadManifest() after Run error = %v", err)
+	}
+	if m.InfraVersion != Version {
+		t.Fatalf("manifest infraVersion after Run = %d, want %d", m.InfraVersion, Version)
+	}
+	if m.Language != "python" || m.Stack != "python-cli-typer" {
+		t.Fatalf("Run() lost manifest params: %+v", m)
 	}
 }
 
