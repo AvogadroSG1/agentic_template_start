@@ -34,3 +34,14 @@ func EnsureBeadsDirPerms(targetDir string) (repaired bool, err error) {
 
 	return true, nil
 }
+
+// beadsPermsDrifted reports whether <targetDir>/.beads exists and does not
+// carry beadsDirPerm, without mutating anything. It is the read-only
+// counterpart to EnsureBeadsDirPerms used by `forge upgrade --check`.
+func beadsPermsDrifted(targetDir string) bool {
+	info, err := os.Stat(filepath.Join(targetDir, ".beads"))
+	if err != nil {
+		return false
+	}
+	return info.Mode().Perm() != beadsDirPerm
+}

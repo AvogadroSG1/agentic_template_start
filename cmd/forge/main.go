@@ -250,11 +250,23 @@ func runUpgrade(args []string, assets fs.FS) error {
 	}
 
 	if checkOnly {
+		exitNonZero := false
 		if status.Stale {
 			fmt.Printf("forge upgrade: infrastructure is at v%d, current is v%d; run `forge upgrade`\n", status.OnDisk, status.Version)
+			exitNonZero = true
+		}
+		if status.PermsDrift {
+			fmt.Println("forge upgrade: .beads permissions drifted from 0700; run `forge upgrade` to repair")
+			exitNonZero = true
+		}
+		if exitNonZero {
 			os.Exit(1)
 		}
 		return nil
+	}
+
+	if status.PermsRepaired {
+		fmt.Println("forge upgrade: repaired .beads permissions to 0700")
 	}
 
 	if len(status.Updated) == 0 {

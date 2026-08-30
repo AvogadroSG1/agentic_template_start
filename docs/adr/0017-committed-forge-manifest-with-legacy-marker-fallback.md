@@ -99,6 +99,10 @@ flowchart TD
   so no other code path may touch `.forge-infra-version` or `.forge/manifest.json` directly.
 - SPEC.md §19 gains a "Freshly scaffolded repo is born current" scenario and the §17 file manifest
   now lists both files under the scaffolded-output tree.
+- The backfill path promised here (this epic's PR5) is best-effort, not fail-loud: when a legacy
+  repo's params are uninferable, `forge upgrade` skips writing `.forge/manifest.json` and prints a
+  notice rather than failing the run — infra reconciliation must never block on a manifest it
+  cannot honestly construct.
 
 *Authored By Peter O'Connor with Assistance from Claude Code (claude-sonnet-5) · 2026-08-30 · forge
 infra-version manifest*
