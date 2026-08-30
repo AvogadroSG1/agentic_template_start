@@ -801,8 +801,15 @@ flowchart TD
 
 `forge upgrade` propagates managed static infrastructure files from the embedded template into an
 existing forge-scaffolded repository. It overwrites `.claude/hooks/guard`,
-`.claude/hooks/secret-scan.sh`, `.claude/settings.json`, and `.codex/hooks.json` unconditionally
-when the on-disk infrastructure version is behind the embedded version.
+`.claude/hooks/secret-scan.sh`, `.claude/settings.json`, `.codex/hooks.json`, and
+`.opencode/plugins/forge-hooks.js` unconditionally when the on-disk infrastructure version is
+behind the embedded version.
+
+`opencode.jsonc` is intentionally **not** upgrade-managed: it is rendered from a `.tmpl` at
+`forge init` time using project-specific parameters, so blind-copying the raw template would write
+unrendered `{{ }}` syntax to disk. Its managed allow-block is instead kept in sync via
+`forge sync-allowlist`. Full upgrade-management of `opencode.jsonc` returns once init parameters
+are persisted for later re-rendering (a follow-up unit).
 
 Version state lives in `.forge-infra-version` (repo root). Missing file → version 0 → always stale.
 The version file is written last so interrupted upgrades re-apply.

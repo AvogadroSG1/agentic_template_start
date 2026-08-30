@@ -1,8 +1,10 @@
 package upgrade
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -56,7 +58,7 @@ func TestCheckReportsCurrentWhenVersionMatches(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte("3\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".forge-infra-version"), []byte(fmt.Sprintf("%d\n", Version)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,8 +113,8 @@ func TestRunOverwritesManagedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	if len(status.Updated) != 6 {
-		t.Fatalf("Run() updated %d files, want 6", len(status.Updated))
+	if len(status.Updated) != 5 {
+		t.Fatalf("Run() updated %d files, want 5", len(status.Updated))
 	}
 
 	// Verify guard was overwritten
@@ -124,9 +126,9 @@ func TestRunOverwritesManagedFiles(t *testing.T) {
 		t.Fatalf("guard not overwritten: got %q", string(data))
 	}
 
-	// Verify opencode.jsonc was created
-	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); err != nil {
-		t.Fatalf("opencode.jsonc not created: %v", err)
+	// Verify opencode.jsonc was NOT created — it is no longer upgrade-managed.
+	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); !os.IsNotExist(err) {
+		t.Fatalf("opencode.jsonc created by upgrade (err=%v); it must not be upgrade-managed", err)
 	}
 
 	// Verify vendor plugin was created
@@ -139,8 +141,8 @@ func TestRunOverwritesManagedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(string(vData)) != "3" {
-		t.Fatalf("version file = %q, want \"3\"", string(vData))
+	if strings.TrimSpace(string(vData)) != strconv.Itoa(Version) {
+		t.Fatalf("version file = %q, want %q", string(vData), strconv.Itoa(Version))
 	}
 }
 
@@ -192,8 +194,8 @@ func TestRunCreatesDirectoriesForMissingFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	if len(status.Updated) != 6 {
-		t.Fatalf("Run() updated %d files, want 6", len(status.Updated))
+	if len(status.Updated) != 5 {
+		t.Fatalf("Run() updated %d files, want 5", len(status.Updated))
 	}
 
 	// Verify .codex/hooks.json was created
@@ -206,9 +208,9 @@ func TestRunCreatesDirectoriesForMissingFiles(t *testing.T) {
 		t.Fatalf(".opencode/plugins/forge-hooks.js not created: %v", err)
 	}
 
-	// Verify opencode.jsonc was created
-	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); err != nil {
-		t.Fatalf("opencode.jsonc not created: %v", err)
+	// Verify opencode.jsonc was NOT created — it is no longer upgrade-managed.
+	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); !os.IsNotExist(err) {
+		t.Fatalf("opencode.jsonc created by upgrade (err=%v); it must not be upgrade-managed", err)
 	}
 }
 
@@ -248,6 +250,78 @@ func TestRunSetsExecutablePermissionOnHooks(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o755 {
 		t.Fatalf("guard mode = %o, want 755", info.Mode().Perm())
+	}
+}
+
+func TestRunLeavesOpencodeJsoncUntouched(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// opencode.jsonc is co-owned and parameterized; upgrade must never overwrite it.
+	sentinel := `{"lsp":{"gopls":{}},"hand":"edited"}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "opencode.jsonc"), []byte(sentinel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := Run(testAssets(), dir, false)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "opencode.jsonc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != sentinel {
+		t.Fatalf("opencode.jsonc mutated by upgrade:\ngot  %q\nwant %q", string(data), sentinel)
+	}
+	for _, updated := range status.Updated {
+		if updated == "opencode.jsonc" {
+			t.Fatal("Run() reported opencode.jsonc as updated; it must not be upgrade-managed")
+		}
+	}
+}
+
+func TestRunNeverWritesTemplateSyntaxToDisk(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "hooks", "guard"), []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mirror the real repo: the opencode template carries Go-template expressions
+	// that are only valid after rendering with init parameters.
+	assets := testAssets()
+	assets["templates/common/opencode.jsonc.tmpl"] = &fstest.MapFile{
+		Data: []byte("{\n{{- if eq .Language \"go\" }}\n  \"lsp\": {\"gopls\": {}}\n{{- end }}\n}\n"),
+	}
+
+	status, err := Run(assets, dir, false)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	for _, updated := range status.Updated {
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(updated)))
+		if err != nil {
+			t.Fatalf("read %s: %v", updated, err)
+		}
+		if strings.Contains(string(data), "{{") {
+			t.Fatalf("%s contains unrendered template syntax:\n%s", updated, string(data))
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "opencode.jsonc")); !os.IsNotExist(err) {
+		t.Fatalf("opencode.jsonc written by upgrade (err=%v); the raw template must never be copied", err)
 	}
 }
 

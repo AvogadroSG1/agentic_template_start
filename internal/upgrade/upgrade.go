@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const Version = 3
+const Version = 4
 
 const versionFile = ".forge-infra-version"
 
@@ -26,7 +26,6 @@ var managedFiles = []managedFile{
 	{src: "templates/common/claude/hooks/secret-scan.sh", dest: ".claude/hooks/secret-scan.sh", mode: 0o755},
 	{src: "templates/common/claude/settings.json", dest: ".claude/settings.json", mode: 0o644},
 	{src: "templates/common/codex/hooks.json", dest: ".codex/hooks.json", mode: 0o644},
-	{src: "templates/common/opencode.jsonc.tmpl", dest: "opencode.jsonc", mode: 0o644},
 	{src: "templates/common/opencode/plugins/forge-hooks.js", dest: ".opencode/plugins/forge-hooks.js", mode: 0o644},
 }
 
