@@ -186,13 +186,10 @@ func TestConformanceIgnoresVettedExtrasOutsideTheGuidelineFloor(t *testing.T) {
 	}
 }
 
-func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
+func TestPostV1GuidelineFilesExistInVendoredSnapshots(t *testing.T) {
 	t.Parallel()
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("user home dir: %v", err)
-	}
+	root := repoRoot(t)
 
 	for _, tc := range []struct {
 		language string
@@ -202,7 +199,7 @@ func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
 		{"bash", "bash.md"},
 	} {
 		t.Run(tc.language, func(t *testing.T) {
-			path := filepath.Join(homeDir, "peter_code", "ai_support", "guidelines", tc.file)
+			path := filepath.Join(root, "test", "testdata", "guidelines", tc.file)
 			info, err := os.Stat(path)
 			if err != nil {
 				t.Fatalf("guideline file missing: %s", path)
@@ -217,7 +214,7 @@ func TestPostV1GuidelineFilesExistAtCanonicalPaths(t *testing.T) {
 func TestShippedTemplateWithoutGuidelineBackedLanguageFails(t *testing.T) {
 	checker := newGuidelineChecker(t)
 
-	err := checker.checkEvidence("rust", []evidenceFile{{path: "synthetic-rust-overlay", content: "cargo test"}})
+	err := checker.checkEvidence("zig", []evidenceFile{{path: "synthetic-zig-overlay", content: "zig build test"}})
 	if err == nil {
 		t.Fatal("expected missing canonical guideline error")
 	}
@@ -228,7 +225,6 @@ func TestShippedTemplateWithoutGuidelineBackedLanguageFails(t *testing.T) {
 
 type guidelineChecker struct {
 	repoRoot string
-	homeDir  string
 }
 
 type toolRequirement struct {
@@ -245,14 +241,8 @@ type evidenceFile struct {
 func newGuidelineChecker(t *testing.T) guidelineChecker {
 	t.Helper()
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("user home dir: %v", err)
-	}
-
 	return guidelineChecker{
 		repoRoot: repoRoot(t),
-		homeDir:  homeDir,
 	}
 }
 
@@ -329,12 +319,14 @@ func (c guidelineChecker) guidelinePath(language string) (string, error) {
 		"python":     "python.md",
 		"csharp":     "csharp.md",
 		"typescript": "typescript.md",
+		"rust":       "rust.md",
+		"bash":       "bash.md",
 	}[language]
 	if !ok {
 		return "", fmt.Errorf("no canonical guideline file for %s", language)
 	}
 
-	return filepath.Join(c.homeDir, "peter_code", "ai_support", "guidelines", fileName), nil
+	return filepath.Join(c.repoRoot, "test", "testdata", "guidelines", fileName), nil
 }
 
 func normativeGuidelineLines(content string) []string {

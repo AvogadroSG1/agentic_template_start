@@ -431,6 +431,15 @@ missing something required). It does **not** fail when the overlay ships a vette
 guideline is silent on. Consequently `FluentAssertions` (C#) and `pytest-mock` (Python), if present
 as vetted extras, require **no guideline edit**.
 
+`ebp` reads byte-for-byte snapshots of the six canonical guideline files vendored in-repo at
+`test/testdata/guidelines/` — it MUST NOT resolve guidelines at the maintainer's machine-local
+canonical path (`~/peter_code/ai_support/guidelines/`), so the test suite stays hermetic on any
+checkout, including CI runners (**ADR-0018**). A separate drift test
+(`TestVendoredGuidelinesMatchCanonicalSource`) byte-compares the vendored snapshots to the
+canonical source when it is present on the machine (or `FORGE_CANONICAL_GUIDELINES_DIR` is set) and
+skips otherwise; refreshing a snapshot after a guideline edit is a `cp -f` from the canonical file
+to the vendored path.
+
 ### 10.3 CI workflow shape
 
 One **language-agnostic** `ci.yml`, identical across all stacks: checkout → install mise →
@@ -794,7 +803,7 @@ Feature's `all-children` gate IS the seam test.)*
 | **Composition** | `83n` (contract) × `iha` (Phase-1 writer) × `3tt` (catalog assets) × `yuw` (common assets) × `s5x` (init entrypoint that invokes composition end-to-end) | **Walking-skeleton Feature gate**: `forge init --stack <key> --remote none` composes correctly → `mise run ci` green → ≥1 real test passes, offline. MAY prove with one stack first; MUST cover all six to close. | Feature `all-children` gate; pulled forward as the first user-visible milestone. |
 | **CI resolves** | `ud1` (CI workflow) × `x2k` (mise `ci` task) | **Gate-pipeline Feature gate**: every shipped overlay's `mise.toml` defines a `ci` task that `mise run ci` resolves to, across all v1 stacks. | Feature `all-children` gate. |
 | **Update idempotence** | `369` (steps interpreter) × `cjl` (normalization/refresh) | **Maintainer-refresh Feature gate**: `forge update --stack <key>` run twice with no upstream change → `templates/golden/<key>/` byte-identical, overlay untouched, git diff empty. | Feature `all-children` gate. |
-| **Conformance fixture** | `zz8` (publish guidelines) → `ebp` (conformance test) | Precondition, not a composition seam: `ebp` can resolve the three guideline files at their canonical path. | Plain `blockedBy` edge (`ebp` blocked-by `zz8`). |
+| **Conformance fixture** | `zz8` (publish guidelines) → `ebp` (conformance test) | Precondition, not a composition seam: `ebp` reads the guideline files from the in-repo vendored snapshots (`test/testdata/guidelines/`, **ADR-0018**), refreshed from the canonical path by `cp -f` after `zz8` publishes. | Plain `blockedBy` edge (`ebp` blocked-by `zz8`). |
 | **Chain-mode hooks** | `485` (verify beads hooks survive `lefthook install`) → `x2k` (real multi-job lefthook) | `485` proves chain mode in isolation; the local smoke (§16.1) exercises pre-commit/pre-push at runtime without duplicating the `485` proof. | `x2k` blocked-by `485` (existing edge). |
 
 ### 18.1 Work hierarchy (Epic → Feature → Story)
